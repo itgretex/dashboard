@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GRETEX - Secure Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      background-color: #080c10;
+      background-image: radial-gradient(at 50% 0%, rgba(54, 224, 197, 0.1) 0px, transparent 50%);
+      font-family: 'Inter', sans-serif;
+    }
+    .glass-panel {
+      background: rgba(13, 20, 28, 0.8);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+    }
+    /* Loading Spinner */
+    .loader { border: 2px solid rgba(0,0,0,0.1); border-left-color: #0f172a; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; margin-right: 8px;}
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center text-slate-200">
+  
+  <div class="glass-panel p-8 rounded-2xl w-full max-w-md mx-4 relative overflow-hidden">
+    <div class="absolute top-0 right-0 h-32 w-32 bg-[#36e0c5] opacity-10 rounded-full blur-3xl pointer-events-none"></div>
+    
+    <div class="mb-8 text-center">
+      <div class="flex items-center justify-center gap-2 mb-2">
+        <span class="h-2 w-2 rounded-full bg-[#36e0c5] animate-pulse"></span>
+        <span class="font-mono text-[10px] uppercase tracking-[0.25em] text-[#36e0c5] font-bold">Secure Access</span>
+      </div>
+      <h1 class="text-3xl font-black text-white tracking-tight">GRETEX</h1>
+      <p class="text-slate-400 text-sm mt-1">Core Storage Telemetry Console</p>
+    </div>
+
+    <form id="loginForm" class="space-y-5">
+      <div>
+        <label class="block font-mono text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Employee ID / Username</label>
+        <input type="text" id="username" required class="w-full bg-slate-900 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#36e0c5] transition-colors">
+      </div>
+      <div>
+        <label class="block font-mono text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Secure Password</label>
+        <input type="password" id="password" required class="w-full bg-slate-900 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#36e0c5] transition-colors">
+      </div>
+      
+      <button type="submit" id="loginBtn" class="w-full bg-[#36e0c5] hover:bg-[#2bc4ab] text-slate-900 font-bold py-2.5 rounded-lg text-sm transition-all mt-4">
+        AUTHENTICATE SESSION
+      </button>
+    </form>
+
+    <div id="errorMsg" class="hidden mt-4 text-xs font-mono text-red-400 text-center bg-red-500/10 py-2 rounded">
+      <!-- Error Message goes here -->
+    </div>
+  </div>
+
+  <script>
+    // IMPORTANT: Yahan apne deployed Apps Script ka URL daalo (Same as GStorage.html)
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbw7cyelh6CjuvDLVfbeugh-1Ut63oubr46wG0q7O3oDAGOe9y99GJPacEZHuWuBvmriiA/exec";
+    
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const user = document.getElementById('username').value;
+      const pass = document.getElementById('password').value;
+      const btn = document.getElementById('loginBtn');
+      const errorMsg = document.getElementById('errorMsg');
+      
+      // Reset errors & show loading state
+      errorMsg.classList.add('hidden');
+      btn.innerHTML = '<span class="loader"></span> AUTHENTICATING...';
+      btn.disabled = true;
+      btn.classList.add('opacity-80', 'cursor-not-allowed');
+
+      try {
+        // Headers hata diye hain taaki CORS preflight trigger na ho
+        const response = await fetch(GAS_API_URL, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'login', username: user, password: pass })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          // Login successful! Save auth token & user info
+          sessionStorage.setItem('gretex_auth', 'true');
+          sessionStorage.setItem('gretex_user', JSON.stringify(result.user));
+          
+          // Redirect to main dashboard
+          window.location.href = 'GStorage.html';
+        } else {
+          // Validation failed (Wrong password or ID)
+          errorMsg.innerText = result.message || "Invalid Credentials.";
+          errorMsg.classList.remove('hidden');
+        }
+      } catch (err) {
+        errorMsg.innerText = "Network Error! Ensure your Web App URL is correct.";
+        errorMsg.classList.remove('hidden');
+        console.error("Login Error:", err);
+      } finally {
+        // Reset button
+        btn.innerHTML = 'AUTHENTICATE SESSION';
+        btn.disabled = false;
+        btn.classList.remove('opacity-80', 'cursor-not-allowed');
+      }
+    });
+  </script>
+</body>
+</html>
