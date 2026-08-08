@@ -60,7 +60,8 @@
 
     .badge { display: inline-flex; align-items: center; padding: 0.125rem 0.5rem; border-radius: 9999px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 600; }
     .badge-excellent { background-color: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25); }
-    .badge-good { background-color: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.25); }
+    .badge-good { background-color: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.25); }
+    .badge-improve { background-color: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.25); }
     .badge-poor { background-color: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25); }
 
     .pulse-dot { animation: pulse 2s infinite; }
@@ -95,7 +96,6 @@
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
         OneDrive Intelligence
       </a>
-      <!-- NAYA LINK -->
       <a href="IPS.html" class="sidebar-link active">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
         ISP Speed Monitor
@@ -210,7 +210,7 @@
         htmlEl.classList.remove('light'); htmlEl.classList.add('dark');
         document.getElementById('themeIcon').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>';
       }
-      if(chartInstance) { setTimeout(renderChart, 100); } // Re-render chart for colors
+      if(chartInstance) { setTimeout(renderChart, 100); } 
     }
 
     function logout() {
@@ -277,8 +277,8 @@
         totalPlan += d.plan;
         sumDownload += d.download;
         
-        // Agar download speed plan ke 70% se kam hai
-        if (d.plan > 0 && (d.download / d.plan) < 0.7) {
+        // Agar download speed plan ke 70% ya usse kam hai (Poor ya Need to Improve dono count honge)
+        if (d.plan > 0 && (d.download / d.plan) <= 0.70) {
           underperforming++;
         }
       });
@@ -298,9 +298,9 @@
           <span class="font-mono text-[9px] uppercase tracking-wider text-[var(--text-muted)] font-semibold">Average Download</span>
           <div class="mt-2 text-2xl font-black font-mono text-emerald-500">${avgDownload}<span class="text-xs ml-1">Mbps</span></div>
         </div>
-        <div class="glass-panel rounded-xl p-4 flex flex-col justify-between border-t-2 ${underperforming > 0 ? 'border-rose-500' : 'border-emerald-500'}">
-          <span class="font-mono text-[9px] uppercase tracking-wider text-[var(--text-muted)] font-semibold">Needs Attention (< 70% Speed)</span>
-          <div class="mt-2 text-2xl font-black font-mono ${underperforming > 0 ? 'text-rose-500' : 'text-emerald-500'}">${underperforming}<span class="text-xs ml-1 font-sans font-normal">lines</span></div>
+        <div class="glass-panel rounded-xl p-4 flex flex-col justify-between border-t-2 ${underperforming > 0 ? 'border-amber-500' : 'border-emerald-500'}">
+          <span class="font-mono text-[9px] uppercase tracking-wider text-[var(--text-muted)] font-semibold">Needs Attention (<= 70% Speed)</span>
+          <div class="mt-2 text-2xl font-black font-mono ${underperforming > 0 ? 'text-amber-500' : 'text-emerald-500'}">${underperforming}<span class="text-xs ml-1 font-sans font-normal">lines</span></div>
         </div>
       `;
     }
@@ -353,11 +353,24 @@
 
       tableBody.innerHTML = filtered.map(r => {
         let pct = r.plan > 0 ? (r.download / r.plan) : 0;
-        let badgeClass = 'badge-excellent';
-        let badgeText = 'Excellent';
+        
+        let badgeClass = '';
+        let badgeText = '';
 
-        if (pct < 0.7) { badgeClass = 'badge-poor'; badgeText = 'Poor'; }
-        else if (pct < 0.9) { badgeClass = 'badge-good'; badgeText = 'Good'; }
+        // Naya Health Status Logic
+        if (pct < 0.50) { 
+          badgeClass = 'badge-poor'; 
+          badgeText = 'Poor'; 
+        } else if (pct <= 0.70) { 
+          badgeClass = 'badge-improve'; 
+          badgeText = 'Need to Improve'; 
+        } else if (pct < 0.90) { 
+          badgeClass = 'badge-good'; 
+          badgeText = 'Good'; 
+        } else { 
+          badgeClass = 'badge-excellent'; 
+          badgeText = 'Excellent'; 
+        }
 
         return `
           <tr class="hover:bg-[var(--bg-input)] transition-colors border-b border-[var(--border-table)]">
