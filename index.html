@@ -91,7 +91,7 @@
           sessionStorage.setItem('gretex_user', JSON.stringify(result.user));
           
           // Redirect to main dashboard
-          window.location.href = 'GStorage.html';
+          window.location.href = 'dashboard.html';
         } else {
           // Validation failed (Wrong password or ID)
           errorMsg.innerText = result.message || "Invalid Credentials.";
