@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GRETEX Next-Gen Storage Console</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            accent: 'rgb(var(--accent-rgb) / <alpha-value>)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Theme Variables for Light & Dark Mode */
+    :root {
+      --accent: #36e0c5;
+      --accent-rgb: 54, 224, 197;
+      
+      /* Light Mode */
+      --bg-body: #f8fafc;
+      --bg-panel: rgba(255, 255, 255, 0.95);
+      --border-panel: rgba(15, 23, 42, 0.1);
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --bg-card: #ffffff;
+      --bg-input: #f1f5f9;
+      --border-input: #cbd5e1;
+      --bg-table-head: #f1f5f9;
+      --border-table: #e2e8f0;
+      --dynamic-text: #0f172a;
+      --chart-grid: rgba(0,0,0,0.05);
+    }
+
+    .dark {
+      /* Dark Mode */
+      --bg-body: #080c10;
+      --bg-panel: rgba(13, 20, 28, 0.7);
+      --border-panel: rgba(255, 255, 255, 0.04);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --bg-card: rgba(15, 23, 42, 0.4);
+      --bg-input: #0f172a;
+      --border-input: #1e293b;
+      --bg-table-head: rgba(15, 23, 42, 0.6);
+      --border-table: #1e293b;
+      --dynamic-text: #ffffff;
+      --chart-grid: rgba(255,255,255,0.04);
+    }
+
+    body {
+      background-color: var(--bg-body);
+      color: var(--text-main);
+      transition: background-color 0.3s ease, color 0.3s ease;
+      background-image: 
+        radial-gradient(at 50% 0%, rgba(var(--accent-rgb), 0.05) 0px, transparent 50%),
+        linear-gradient(rgba(150, 150, 150, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(150, 150, 150, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 24px 24px, 24px 24px;
+    }
+    
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-input); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+    .glass-panel {
+      background: var(--bg-panel);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-panel);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+    }
+    .dark .glass-panel { box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4); }
+
+    .bg-theme-card { background-color: var(--bg-card); border: 1px solid var(--border-panel); }
+
+    select, input {
+      background-color: var(--bg-input) !important;
+      border-color: var(--border-input) !important;
+      color: var(--text-main) !important;
+    }
+
+    /* Sidebar Links */
+    .sidebar-link {
+      display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-radius: 0.5rem;
+      font-size: 0.875rem; font-weight: 500; color: var(--text-muted); transition: all 0.2s;
+    }
+    .sidebar-link:hover, .sidebar-link.active {
+      background-color: rgba(var(--accent-rgb), 0.1); color: var(--accent);
+    }
+
+    /* Progress Fills */
+    .bay-fill { transition: height 1.2s cubic-bezier(0.25, 1, 0.5, 1); box-shadow: 0 0 15px currentColor; }
+    .loc-bar-fill { transition: width 1s cubic-bezier(0.25, 1, 0.5, 1); }
+
+    /* Badges */
+    .badge { display: inline-flex; align-items: center; padding: 0.125rem 0.5rem; border-radius: 9999px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 600; }
+    .badge.ok { background-color: rgba(var(--accent-rgb), 0.1); color: var(--accent); border: 1px solid rgba(var(--accent-rgb), 0.2); }
+    .badge.warn { background-color: rgba(251, 191, 36, 0.1); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.25); }
+    .badge.crit { background-color: rgba(244, 63, 94, 0.1); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.25); }
+    .badge.unused { background-color: rgba(139, 92, 246, 0.15); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.2); }
+    .badge.na { background-color: rgba(71, 85, 105, 0.15); color: #94a3b8; border: 1px solid rgba(71, 85, 105, 0.2); }
+
+    .pulse-dot { animation: pulse 2s infinite; }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.4); }
+      70% { box-shadow: 0 0 0 6px rgba(var(--accent-rgb), 0); }
+      100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0); }
+    }
+  </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+  <!-- Authentication Check -->
+  <script>
+    if(!sessionStorage.getItem('gretex_auth')) {
+      window.location.href = 'index.html';
+    }
+  </script>
+
+    <!-- MOBILE TOPBAR -->
+  <div class="md:hidden fixed top-0 inset-x-0 z-30 glass-panel border-b border-[var(--border-panel)] flex items-center justify-between px-4 py-3">
+    <button onclick="toggleSidebar()" class="p-2 rounded bg-[var(--bg-input)] border border-[var(--border-input)] text-[var(--text-muted)]" aria-label="Open menu">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+    </button>
+    <h1 class="text-base font-black tracking-tight text-[var(--text-main)]">GRETEX <span class="text-accent text-[10px] font-mono align-top">SYS</span></h1>
+    <div class="w-9"></div>
+  </div>
+
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div id="sidebarOverlay" onclick="closeSidebar()" class="hidden md:hidden fixed inset-0 bg-black/50 z-30"></div>
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar" class="w-64 glass-panel border-r border-[var(--border-panel)] flex flex-col h-full shrink-0 fixed inset-y-0 left-0 z-40 -translate-x-full transition-transform duration-300 ease-in-out md:static md:translate-x-0">
+    <div class="p-6">
+      <h1 class="text-2xl font-black tracking-tight flex items-center gap-2 text-[var(--text-main)]">
+        GRETEX <span class="text-accent text-sm font-mono mt-1">SYS</span>
+      </h1>
+      <p class="text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-mono mt-1">Console Hub</p>
+    </div>
+    
+    <nav class="flex-1 px-4 space-y-2">
+      <a href="GStorage.html" class="sidebar-link active">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
+        Storage Telemetry
+      </a>
+      <a href="Monitoring.html" class="sidebar-link">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
+        VM & Hyperv
+      </a>
+      <a href="Onedrive.html" class="sidebar-link">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+        OneDrive Intelligence
+      </a>
+      <a href="IPS.html" class="sidebar-link">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+        ISP Speed Monitor
+      </a>
+      <a href="cctv.html" class="sidebar-link">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+        CCTV Tracking
+      </a>
+    </nav>
+    
+    <div class="p-4 border-t border-[var(--border-panel)]">
+      <button onclick="logout()" class="w-full sidebar-link justify-center text-red-500 hover:bg-red-500/10">
+        Sign Out
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT AREA -->
+  <main class="flex-1 h-full overflow-y-auto pb-16 pt-16 md:pt-0">
+    <div class="max-w-[1440px] mx-auto px-4 md:px-8 pt-6">
+      
+      <!-- HEADER -->
+      <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 mb-8 border-b border-[var(--border-panel)]">
+        <div>
+          <div class="flex items-center gap-2 mb-1.5">
+            <span class="h-2 w-2 rounded-full bg-accent pulse-dot"></span>
+            <span class="font-mono text-[10px] uppercase tracking-[0.25em] text-accent font-bold">Telemetry Feed</span>
+          </div>
+          <h1 class="text-2xl md:text-3xl font-black text-[var(--text-main)] tracking-tight flex items-center gap-3">
+            Storage Console
+          </h1>
+          <p class="text-[var(--text-muted)] text-xs mt-1" id="subline">Initializing terminal session...</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-4 w-full md:w-auto">
+          <!-- Theme Toggle -->
+          <div class="flex items-center gap-4 border-r border-[var(--border-panel)] pr-4">
+            <button onclick="toggleTheme()" class="p-2 rounded bg-[var(--bg-input)] border border-[var(--border-input)] text-[var(--text-muted)] hover:text-accent transition-colors" title="Toggle Light/Dark Mode">
+              <svg id="themeIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+            </button>
+          </div>
+
+          <div class="relative flex-1 md:flex-initial">
+            <label class="block font-mono text-[9px] uppercase tracking-wider text-[var(--text-muted)] mb-1">Select Snapshot</label>
+            <select id="dateSelect" onchange="onDateChange(this.value)" class="w-full md:w-[180px] rounded px-3 py-1.5 text-xs font-mono font-semibold focus:outline-none focus:ring-1 focus:ring-accent cursor-pointer">
+              <option value="">Loading...</option>
+            </select>
+          </div>
+        </div>
+      </header>
+
+      <!-- ALERT BANNER -->
+      <div id="alertBanner" class="hidden mb-6 bg-red-500/10 border border-red-500/30 text-red-500 text-sm px-4 py-3 rounded-lg flex items-center justify-between">
+        <span id="alertText">Error</span>
+        <button onclick="document.getElementById('alertBanner').classList.add('hidden')" class="text-xs font-mono hover:underline">[Dismiss]</button>
+      </div>
+
+      <!-- MAIN KPI CARDS -->
+      <section class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8" id="kpiStrip">
+        <!-- Rendered by JS -->
+      </section>
+
+      <!-- MIDDLE RACK & PARTITIONS SECTION -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+        
+        <!-- LEFT WRAPPER: Drive Bays & AI Advisories -->
+        <div class="lg:col-span-6 space-y-4">
+          <!-- 01 BY SERVER - DRIVE BAYS -->
+          <section class="glass-panel rounded-xl p-5 flex flex-col">
+            <div class="flex justify-between items-center mb-6 border-b border-[var(--border-panel)] pb-3">
+              <div class="flex items-center gap-2">
+                <span class="font-mono text-xs text-accent bg-accent/10 px-1.5 py-0.5 rounded font-bold">01</span>
+                <h2 class="text-sm font-extrabold text-[var(--text-main)] tracking-widest uppercase">By Server - Drive Bays</h2>
+              </div>
+            </div>
+            
+            <div class="flex h-56 items-stretch gap-4 font-mono text-xs mb-4">
+              <!-- Y Axis -->
+              <div class="flex flex-col justify-between text-[var(--text-muted)] pr-2 pb-16 border-r border-[var(--border-panel)] text-[10px] w-10 text-right select-none">
+                <span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span>
+              </div>
+              <!-- Columns -->
+              <div class="flex-1 flex justify-around items-end relative pb-16 pt-2">
+                <div class="absolute inset-x-0 bottom-16 top-2 flex flex-col justify-between pointer-events-none z-0">
+                  <div class="border-b border-[var(--border-panel)] w-full opacity-50"></div>
+                  <div class="border-b border-[var(--border-panel)] w-full opacity-50"></div>
+                  <div class="border-b border-[var(--border-panel)] w-full opacity-50"></div>
+                  <div class="border-b border-[var(--border-panel)] w-full opacity-50"></div>
+                  <div class="border-b border-[var(--border-panel)] w-full opacity-50"></div>
+                </div>
+                <div class="absolute inset-0 flex justify-around items-end pb-16 pt-2 z-10" id="bays">
+                  <!-- JS Columns -->
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- INTELLIGENCE TELEMETRY & ADVISORIES CARD -->
+          <div class="glass-panel rounded-xl p-5 space-y-4" id="intelligenceNotesCard">
+            <!-- JS AI Content -->
+          </div>
+        </div>
+
+        <!-- 02 DISK PARTITION RATINGS -->
+        <section class="lg:col-span-6 glass-panel rounded-xl p-5 flex flex-col">
+          <div class="flex justify-between items-center mb-4 border-b border-[var(--border-panel)] pb-3">
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-xs text-accent bg-accent/10 px-1.5 py-0.5 rounded font-bold">02</span>
+              <h2 class="text-sm font-extrabold text-[var(--text-main)] tracking-widest uppercase">Disk Partition Ratings</h2>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="locations">
+            <!-- JS Locations -->
+          </div>
+        </section>
+      </div>
+
+      <!-- 03 CAPACITY TREND MATRIX -->
+      <section class="glass-panel rounded-xl p-5 mb-8">
+        <div class="flex justify-between items-center mb-6 border-b border-[var(--border-panel)] pb-3">
+          <div class="flex items-center gap-2">
+            <span class="font-mono text-xs text-accent bg-accent/10 px-1.5 py-0.5 rounded font-bold">03</span>
+            <h2 class="text-sm font-extrabold text-[var(--text-main)] tracking-widest uppercase">Capacity Trend Matrix</h2>
+          </div>
+          <span class="font-mono text-[10px] text-[var(--text-muted)]" id="trendHint">Syncing timeseries...</span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-theme-card rounded-lg p-4 flex flex-col justify-between min-h-[250px]">
+            <div class="mb-3">
+              <h3 class="text-xs font-semibold text-[var(--text-main)]">Overall Utilization Trend (%)</h3>
+            </div>
+            <div class="flex-1 flex items-center justify-center relative w-full h-[180px]" id="trendOverall">
+              <!-- JS SVG -->
+            </div>
+          </div>
+          <div class="bg-theme-card rounded-lg p-4 flex flex-col justify-between min-h-[250px]">
+            <div class="mb-3">
+              <h3 class="text-xs font-semibold text-[var(--text-main)]">Server Breakdown Trend (%)</h3>
+            </div>
+            <div class="flex-1 flex items-center justify-center relative w-full h-[180px]" id="trendByServer">
+              <!-- JS SVG -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 04 BREAKDOWN MATRIX INDEX (TABLE) -->
+      <section class="glass-panel rounded-xl p-5">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 border-b border-[var(--border-panel)] pb-3">
+          <div class="flex items-center gap-2">
+            <span class="font-mono text-xs text-accent bg-accent/10 px-1.5 py-0.5 rounded font-bold">04</span>
+            <h2 class="text-sm font-extrabold text-[var(--text-main)] tracking-widest uppercase">Breakdown Matrix Index</h2>
+          </div>
+          
+          <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <input type="text" id="tableSearch" oninput="onFilterChange()" placeholder="Search location or server..." class="w-full sm:w-[220px] border rounded px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-accent font-mono">
+            <select id="serverFilter" onchange="onFilterChange()" class="border rounded px-3 py-1.5 text-xs focus:outline-none font-mono cursor-pointer">
+              <option value="ALL">All Nodes</option>
+            </select>
+            <select id="thresholdFilter" onchange="onFilterChange()" class="border rounded px-3 py-1.5 text-xs focus:outline-none font-mono cursor-pointer">
+              <option value="ALL">All States</option>
+              <option value="OK">OK (&lt;60%)</option>
+              <option value="WARN">Watch (60-85%)</option>
+              <option value="CRIT">Critical (&gt;85%)</option>
+            </select>
+            <button onclick="exportCSV()" class="bg-[var(--bg-input)] hover:bg-[var(--border-input)] text-[var(--text-main)] border border-[var(--border-input)] px-3 py-1.5 rounded text-xs font-mono font-medium flex items-center gap-1.5 transition-colors cursor-pointer">
+              Export CSV
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto border border-[var(--border-table)] rounded-lg">
+          <table class="w-full text-left border-collapse min-w-[700px]">
+            <thead>
+              <tr class="bg-[var(--bg-table-head)] text-[var(--text-muted)] font-mono text-[10px] uppercase border-b border-[var(--border-table)]">
+                <th class="py-3 px-4 font-semibold">Storage Partition Location</th>
+                <th class="py-3 px-4 font-semibold">Server Node</th>
+                <th class="py-3 px-4 font-semibold text-right">Allocated Capacity</th>
+                <th class="py-3 px-4 font-semibold text-right">Used Capacity</th>
+                <th class="py-3 px-4 font-semibold text-right">Available Free</th>
+                <th class="py-3 px-4 font-semibold text-center">Used (%)</th>
+                <th class="py-3 px-4 font-semibold text-center">Unused (%)</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody" class="divide-y divide-[var(--border-table)] text-xs font-mono text-[var(--text-main)]">
+              <!-- JS Rows -->
+            </tbody>
+          </table>
+        </div>
+        <div class="flex justify-between items-center mt-4 text-[10px] font-mono text-[var(--text-muted)]">
+          <span id="tableHint">Loading telemetry rows...</span>
+        </div>
+      </section>
+
+      <!-- 05 COMBINED NODE & PARTITION MATRIX -->
+      <section class="glass-panel rounded-xl p-5 mt-8 mb-8">
+        <div class="flex justify-between items-center mb-6 border-b border-[var(--border-panel)] pb-3">
+          <div class="flex items-center gap-2">
+            <span class="font-mono text-xs text-accent bg-accent/10 px-1.5 py-0.5 rounded font-bold">05</span>
+            <h2 class="text-sm font-extrabold text-[var(--text-main)] tracking-widest uppercase">Combined Node & Partition Matrix</h2>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" id="combinedMatrix">
+          <!-- JS Combined Matrix -->
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ==================== SCRIPT SECTION ==================== -->
+  <script>
+    // IMPORTANT: Apne Apps Script Web App URL se replace karein
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbw7cyelh6CjuvDLVfbeugh-1Ut63oubr46wG0q7O3oDAGOe9y99GJPacEZHuWuBvmriiA/exec";
+    
+    let currentDashboardData = null;
+
+    // Startup
+    window.addEventListener('DOMContentLoaded', () => {
+      fetchDashboardData(null);
+    });
+
+    // Theme Toggle
+    function toggleTheme() {
+      const htmlEl = document.documentElement;
+      if (htmlEl.classList.contains('dark')) {
+        htmlEl.classList.remove('dark');
+        htmlEl.classList.add('light');
+        document.getElementById('themeIcon').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>';
+      } else {
+        htmlEl.classList.remove('light');
+        htmlEl.classList.add('dark');
+        document.getElementById('themeIcon').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>';
+      }
+    }
+
+    // Sidebar toggle (mobile / tablet)
+    function openSidebar() {
+      document.getElementById('sidebar').classList.remove('-translate-x-full');
+      document.getElementById('sidebarOverlay').classList.remove('hidden');
+    }
+    function closeSidebar() {
+      document.getElementById('sidebar').classList.add('-translate-x-full');
+      document.getElementById('sidebarOverlay').classList.add('hidden');
+    }
+    function toggleSidebar() {
+      const sb = document.getElementById('sidebar');
+      if (sb.classList.contains('-translate-x-full')) openSidebar(); else closeSidebar();
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('#sidebar .sidebar-link').forEach(link => {
+        link.addEventListener('click', () => { if (window.innerWidth < 768) closeSidebar(); });
+      });
+    });
+
+    function logout() {
+      sessionStorage.removeItem('gretex_auth');
+      sessionStorage.removeItem('gretex_user');
+      window.location.href = 'index.html';
+    }
+
+    // Main API Fetcher
+    async function fetchDashboardData(dateVal) {
+      document.getElementById('alertBanner').classList.add('hidden');
+      document.getElementById('subline').innerText = "Fetching real-time data from server...";
+      
+      try {
+        let fetchUrl = GAS_API_URL + "?action=getDashboardData";
+        if (dateVal) fetchUrl += "&date=" + encodeURIComponent(dateVal);
+        
+        const response = await fetch(fetchUrl);
+        const data = await response.json();
+        
+        if (data.error) {
+          showError(data.error);
+        } else {
+          currentDashboardData = data;
+          renderDashboard(data);
+        }
+      } catch (error) {
+        showError("Failed to connect to API. Error: " + error.message);
+      }
+    }
+
+    function showError(msg) {
+      document.getElementById('alertBanner').classList.remove('hidden');
+      document.getElementById('alertText').innerText = msg;
+    }
+
+    function onDateChange(selectedVal) {
+      if (!selectedVal) return;
+      fetchDashboardData(selectedVal);
+    }
+
+    // Formatters
+    const STATUS_BG = { ok: 'var(--accent)', warn: '#fbbf24', crit: '#f43f5e' };
+    const STATUS_TEXT = { ok: 'var(--dynamic-text)', warn: '#fbbf24', crit: '#f43f5e' };
+    
+    function statusOf(pct) {
+      if (pct > 85) return 'crit';
+      if (pct >= 60) return 'warn';
+      return 'ok';
+    }
+    
+    function fmtGB(v) { return Math.round(v).toLocaleString(); }
+    function fmtPct(v) { return Number(v).toFixed(1) + '%'; }
+
+    // RENDER DASHBOARD (All Sections)
+    function renderDashboard(data) {
+      const sel = document.getElementById('dateSelect');
+      sel.innerHTML = data.availableDates.map(d => `<option value="${d}" ${d === data.selectedDate ? 'selected' : ''}>${d}</option>`).reverse().join('');
+      
+      document.getElementById('subline').innerText = `Telemetry Snapshot for ${data.selectedDate} · ${data.kpi.serverCount} active server(s)`;
+
+      // KPIs
+      document.getElementById('kpiStrip').innerHTML = `
+        <div class="glass-panel rounded-xl p-4 flex flex-col justify-between">
+          <span class="font-mono text-[9px] uppercase tracking-wider text-[var(--text-muted)] font-semibold">Total Allocated</span>
+          <div class="mt-2 flex items-baseline gap-1">
+            <span class="text-2xl font-black font-mono text-[var(--text-main)]">${fmtGB(data.kpi.totalAllocated)}</span><span class="text-xs font-mono font-semibold">GB</span>
+          </div>
+        </div>
+        <div class="glass-panel rounded-xl p-4 flex flex-col justify-between">
+          <span class="font-mono text-[9px] uppercase tracking-wider text-[var(--text-muted)] font-semibold">Total Used Space</span>
+          <div class="mt-2 flex items-baseline gap-1">
+            <span class="text-2xl font-black font-mono text-amber-500">${fmtGB(data.kpi.totalUsed)}</span><span class="text-xs font-mono font-semibold text-amber-500">GB</span>
+          </div>
+        </div>
+        <div class="glass-panel rounded-xl p-4 flex flex-col justify-between">
+          <span class="font-mono text-[9px] uppercase tracking-wider text-[var(--text-muted)] font-semibold">Available Free</span>
+          <div class="mt-2 flex items-baseline gap-1">
+            <span class="text-2xl font-black font-mono text-purple-500">${fmtGB(data.kpi.totalAvailable)}</span><span class="text-xs font-mono font-semibold text-purple-500">GB</span>
+          </div>
+        </div>
+        <div class="glass-panel rounded-xl p-4 flex flex-col justify-between relative overflow-hidden bg-accent/5">
+          <span class="font-mono text-[9px] uppercase tracking-wider text-accent font-bold flex items-center gap-1">
+            <span class="h-1.5 w-1.5 rounded-full bg-accent"></span> Network Load Rate
+          </span>
+          <div class="mt-2 text-3xl font-black font-mono text-[var(--text-main)]">${fmtPct(data.kpi.overallUsedPct)}</div>
+        </div>
+      `;
+
+      // 01: Drive Bays
+      document.getElementById('bays').innerHTML = data.byServer.map(s => {
+        const pctVal = s.usedPct || 0;
+        const st = statusOf(pctVal);
+        const bgColor = STATUS_BG[st];
+        return `
+          <div class="flex flex-col items-center group relative w-12 sm:w-16">
+            <span class="font-mono text-[10px] font-bold mb-2.5" style="color: ${STATUS_TEXT[st]}">${fmtPct(pctVal)}</span>
+            <div class="w-8 sm:w-10 h-28 bg-[var(--bg-input)] border border-[var(--border-input)] rounded-t-lg overflow-hidden relative">
+              <div class="bay-fill absolute bottom-0 inset-x-0 rounded-t" style="height: 0%; background-color: ${bgColor};" data-h="${pctVal}"></div>
+            </div>
+            <div class="absolute top-36 inset-x-0 flex flex-col items-center text-center">
+              <span class="font-sans font-extrabold text-[11px] text-[var(--text-main)] tracking-tight">${s.server}</span>
+              <span class="font-mono text-[9px] text-[var(--text-muted)] mt-0.5 leading-none">${fmtGB(s.used)}G</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // AI Telemetry Logic
+      const critical = []; const warning = [];
+      data.locationsByServer.forEach(srv => {
+        srv.locations.forEach(loc => {
+          if (loc.usedPct > 85) critical.push({ ...loc, server: srv.server });
+          else if (loc.usedPct >= 60) warning.push({ ...loc, server: srv.server });
+        });
+      });
+
+      let aiHtml = '';
+      if (critical.length > 0) {
+        aiHtml += `
+          <div class="p-3 bg-red-500/10 border border-red-500/20 rounded-lg space-y-2 mb-3">
+            <div class="flex items-center gap-2 text-red-500 font-bold text-[11px] uppercase tracking-wide">
+              CRITICAL CAPACITY OVERLOAD (${critical.length})
+            </div>
+            <div class="space-y-1.5 pt-1">
+              ${critical.map(p => `
+                <div class="flex justify-between text-[11px] bg-red-500/5 p-2 rounded text-[var(--text-main)]">
+                  <span>${p.server} ➔ ${p.location}</span>
+                  <span class="text-red-500 font-bold font-mono">${fmtPct(p.usedPct)}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      } else {
+        aiHtml += `<div class="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-600 dark:text-emerald-400 text-[11px] font-bold mb-3">NO SEVERE ALARMS ACTIVE.</div>`;
+      }
+
+      if (warning.length > 0) {
+        aiHtml += `
+          <div class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg space-y-1.5">
+            <div class="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-bold text-[11px] uppercase">
+              CAPACITY WATCH WARNINGS (${warning.length})
+            </div>
+            <div class="space-y-1 pt-1">
+              ${warning.slice(0,3).map(p => `
+                <div class="flex justify-between text-[10px] px-2 py-1.5 rounded text-[var(--text-main)]">
+                  <span>${p.server} ➔ ${p.location}</span>
+                  <span class="text-amber-600 dark:text-amber-400 font-bold font-mono">${fmtPct(p.usedPct)}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      document.getElementById('intelligenceNotesCard').innerHTML = `
+        <div class="flex justify-between border-b border-[var(--border-panel)] pb-3">
+          <h3 class="text-xs font-mono font-bold text-[var(--text-main)] uppercase tracking-wider flex items-center gap-1.5">
+            <span class="animate-ping inline-flex h-2 w-2 rounded-full bg-red-500"></span>
+            AI Telemetry Advisories
+          </h3>
+        </div>
+        <div class="space-y-2 mt-3 font-mono text-xs">
+          ${aiHtml}
+        </div>
+      `;
+
+      // 02: Disk Partitions
+      document.getElementById('locations').innerHTML = data.locationsByServer.map(srvGrp => {
+        const rowsHtml = srvGrp.locations.map(l => {
+          const st = statusOf(l.usedPct);
+          const bgColor = STATUS_BG[st];
+          return `
+            <div class="space-y-1">
+              <div class="flex justify-between items-center text-[10px]">
+                <span class="font-mono text-[var(--text-main)] font-medium">${l.location}</span>
+                <span class="font-mono font-semibold" style="color: ${STATUS_TEXT[st]}">${fmtPct(l.usedPct)}</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="flex-1 h-1.5 bg-[var(--bg-input)] rounded-full overflow-hidden border border-[var(--border-input)]">
+                  <div class="loc-bar-fill h-full rounded-full" style="background-color: ${bgColor}; width: 0%;" data-w="${l.usedPct}"></div>
+                </div>
+                <span class="font-mono text-[9px] text-[var(--text-muted)] w-24 text-right shrink-0">${fmtGB(l.used)} / ${fmtGB(l.allocated)} G</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+        return `
+          <div class="p-3 bg-theme-card rounded-lg space-y-3">
+            <h3 class="text-[11px] font-bold text-[var(--text-main)] tracking-wider font-mono border-b border-[var(--border-panel)] pb-2">NODE: ${srvGrp.server}</h3>
+            <div class="space-y-3">${rowsHtml}</div>
+          </div>
+        `;
+      }).join('');
+
+      // 03: Combined Matrix
+      document.getElementById('combinedMatrix').innerHTML = data.byServer.map(s => {
+        const srvGrp = data.locationsByServer.find(grp => grp.server === s.server);
+        if (!srvGrp) return '';
+        const oBg = STATUS_BG[statusOf(s.usedPct)];
+        
+        const partHtml = srvGrp.locations.map(l => {
+          const lBg = STATUS_BG[statusOf(l.usedPct)];
+          return `
+            <div class="space-y-1 pl-2 border-l border-[var(--border-panel)]">
+              <div class="flex justify-between text-[9px] font-mono text-[var(--text-muted)]">
+                <span>${l.location}</span><span class="font-bold" style="color: ${STATUS_TEXT[statusOf(l.usedPct)]}">${fmtPct(l.usedPct)}</span>
+              </div>
+              <div class="h-1.5 bg-[var(--bg-input)] rounded-full overflow-hidden">
+                <div class="loc-bar-fill h-full rounded-full" style="background-color: ${lBg}; width: 0%;" data-w="${l.usedPct}"></div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        return `
+          <div class="bg-theme-card rounded-xl p-4 flex flex-col justify-between min-h-[200px]">
+            <div class="flex justify-between items-start border-b border-[var(--border-panel)] pb-2 mb-4">
+              <span class="font-mono text-[11px] font-bold text-[var(--text-main)] uppercase">Node: ${s.server}</span>
+              <span class="font-mono text-[9px] font-bold text-[var(--text-main)] px-1.5 py-0.5 rounded" style="border: 1px solid ${oBg}">${fmtPct(s.usedPct)}</span>
+            </div>
+            <div class="space-y-3 flex-1 flex flex-col justify-center">
+              <div class="space-y-1">
+                <div class="flex justify-between text-[10px] font-mono text-[var(--text-muted)]">
+                  <span>Overall</span><span class="font-semibold" style="color: ${STATUS_TEXT[statusOf(s.usedPct)]}">${fmtPct(s.usedPct)}</span>
+                </div>
+                <div class="h-2 bg-[var(--bg-input)] rounded-full overflow-hidden">
+                  <div class="loc-bar-fill h-full rounded-full" style="background-color: ${oBg}; width: 0%;" data-w="${s.usedPct}"></div>
+                </div>
+              </div>
+              <div class="border-t border-[var(--border-panel)] my-1"></div>
+              <div class="space-y-2">${partHtml}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Animations Trigger
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          document.querySelectorAll('.bay-fill').forEach(el => el.style.height = (el.getAttribute('data-h')||'0') + '%');
+          document.querySelectorAll('.loc-bar-fill').forEach(el => el.style.width = (el.getAttribute('data-w')||'0') + '%');
+        }, 80);
+      });
+
+      // Filter Populate
+      document.getElementById('serverFilter').innerHTML = '<option value="ALL">All Nodes</option>' + data.serverList.map(s => `<option value="${s}">Node: ${s}</option>`).join('');
+
+      // Render Trends & Table
+      renderTrends(data);
+      onFilterChange();
+    }
+
+    // SVG TRENDS RENDERER
+    function renderTrends(data) {
+      document.getElementById('trendHint').innerText = `${data.availableDates.length} snapshot date(s) logged`;
+      const labels = data.trend.map(t => t.date);
+      
+      const overallSeries = [{ name: 'Used Pct', color: 'var(--accent)', area: true, data: data.trend.map(t => typeof t.usedPct === 'number' ? t.usedPct : 0) }];
+      drawTrendSVG(document.getElementById('trendOverall'), labels, overallSeries, { endLabel: true, legend: false });
+
+      const palette = ['var(--accent)', '#fbbf24', '#f43f5e', '#a78bfa', '#60a5fa', '#f472b6'];
+      const serverSeries = data.serverList.map((s, idx) => ({
+        name: s, color: palette[idx % palette.length], area: false,
+        data: data.trend.map(t => (t.perServer && t.perServer[s] && t.perServer[s].allocated) ? (t.perServer[s].used / t.perServer[s].allocated) * 100 : 0)
+      }));
+      drawTrendSVG(document.getElementById('trendByServer'), labels, serverSeries, { endLabel: false, legend: true });
+    }
+
+    function drawTrendSVG(container, labels, series, opts) {
+      if (!container || !labels || labels.length === 0) return;
+      const W = 520, H = 180, padL = 34, padR = opts.endLabel ? 46 : 14, padT = 12, padB = 24;
+      const innerW = W - padL - padR, innerH = H - padT - padB, n = labels.length;
+      
+      const xFor = i => n <= 1 ? padL + innerW/2 : padL + innerW * (i / (n - 1));
+      const yFor = v => padT + innerH - innerH * (Math.max(0, Math.min(100, isNaN(v)||v==null?0:v)) / 100);
+
+      let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" class="overflow-visible" preserveAspectRatio="none">`;
+
+      // Grid
+      [0, 25, 50, 75, 100].forEach(g => {
+        svg += `<line x1="${padL}" y1="${yFor(g)}" x2="${W - padR}" y2="${yFor(g)}" stroke="var(--chart-grid)" stroke-width="1"/>`;
+        svg += `<text x="${padL - 6}" y="${yFor(g) + 3}" text-anchor="end" font-size="8" font-family="JetBrains Mono" fill="var(--text-muted)">${g}</text>`;
+      });
+
+      // X-Axis
+      labels.forEach((lab, i) => {
+        if (n <= 5 || i === 0 || i === n - 1 || i === Math.floor((n - 1) / 2)) {
+          svg += `<text x="${xFor(i)}" y="${H - 6}" text-anchor="middle" font-size="8" font-family="JetBrains Mono" fill="var(--text-muted)">${lab}</text>`;
+        }
+      });
+
+      // Lines
+      series.forEach(s => {
+        const pts = s.data.map((v, i) => `${xFor(i).toFixed(1)},${yFor(v).toFixed(1)}`).join(' ');
+        if (n > 1) {
+          svg += `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="1.75" stroke-linejoin="round"/>`;
+          if (opts.area) svg += `<polygon points="${padL},${padT + innerH} ${pts} ${xFor(n - 1).toFixed(1)},${padT + innerH}" fill="${s.color}" opacity="0.06"/>`;
+        }
+        s.data.forEach((v, i) => svg += `<circle cx="${xFor(i).toFixed(1)}" cy="${yFor(v).toFixed(1)}" r="2.5" fill="${s.color}" stroke="var(--bg-body)" stroke-width="1"/>`);
+        
+        if (opts.endLabel && s.data.length > 0) {
+          const lastVal = s.data[s.data.length - 1];
+          svg += `<text x="${xFor(n - 1) + 6}" y="${yFor(lastVal) + 3}" font-size="9" font-family="JetBrains Mono" font-weight="bold" fill="var(--text-main)">${lastVal.toFixed(1)}%</text>`;
+        }
+      });
+
+      // Legend
+      if (opts.legend) {
+        let legendX = padL + 10;
+        series.forEach(s => {
+          svg += `<rect x="${legendX}" y="${padT + 2}" width="6" height="6" fill="${s.color}" rx="1"/>`;
+          svg += `<text x="${legendX + 10}" y="${padT + 7}" font-size="7.5" font-family="Inter" font-weight="600" fill="var(--text-muted)">${s.name}</text>`;
+          legendX += s.name.length * 4.5 + 24;
+        });
+      }
+      svg += `</svg>`;
+      container.innerHTML = svg;
+    }
+
+    // TABLE FILTER & RENDER
+    function onFilterChange() {
+      if (!currentDashboardData) return;
+      const q = document.getElementById('tableSearch').value.toLowerCase().trim();
+      const nodeSel = document.getElementById('serverFilter').value;
+      const statusSel = document.getElementById('thresholdFilter').value;
+
+      const filtered = currentDashboardData.detail.filter(r => {
+        const matchesSearch = !q || r.location.toLowerCase().includes(q) || r.server.toLowerCase().includes(q);
+        const matchesNode = (nodeSel === 'ALL') || (r.server === nodeSel);
+        let matchesStatus = true;
+        if (statusSel !== 'ALL') matchesStatus = (statusOf(r.usedPct || 0).toUpperCase() === statusSel);
+        return matchesSearch && matchesNode && matchesStatus;
+      });
+
+      const tableBody = document.getElementById('tableBody');
+      if (filtered.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="7" class="py-12 text-center text-[var(--text-muted)] font-mono text-xs">No matching partitions found.</td></tr>`;
+        return;
+      }
+
+      tableBody.innerHTML = filtered.map(r => {
+        if (r.usedPct == null) return `<tr><td colspan="7" class="py-3 px-4 text-center"><span class="badge na">Offline partition</span></td></tr>`;
+        const st = statusOf(r.usedPct);
+        const unused = Math.max(0, 100 - r.usedPct);
+        return `
+          <tr class="hover:bg-[var(--bg-input)] transition-colors border-b border-[var(--border-table)]">
+            <td class="py-3 px-4 font-medium">${r.location}</td>
+            <td class="py-3 px-4 text-[var(--text-muted)] font-semibold">${r.server}</td>
+            <td class="py-3 px-4 text-right">${fmtGB(r.allocated)}</td>
+            <td class="py-3 px-4 text-right">${fmtGB(r.used)}</td>
+            <td class="py-3 px-4 text-right text-[var(--text-muted)]">${fmtGB(r.available)}</td>
+            <td class="py-3 px-4 text-center"><span class="badge ${st}">${fmtPct(r.usedPct)}</span></td>
+            <td class="py-3 px-4 text-center"><span class="badge unused">${fmtPct(unused)}</span></td>
+          </tr>
+        `;
+      }).join('');
+      document.getElementById('tableHint').innerText = `${filtered.length} of ${currentDashboardData.detail.length} rows loaded`;
+    }
+
+    // CSV EXPORT
+    function exportCSV() {
+      if (!currentDashboardData) return;
+      const headers = "Date,Storage Location,Server,Allocated (GB),Used (GB),Available (GB),Used Pct,Unused Pct\n";
+      const rows = currentDashboardData.detail.map(r => 
+        `"${currentDashboardData.selectedDate}","${r.location}","${r.server}",${r.allocated || 0},${r.used || 0},${r.available || 0},${r.usedPct ? r.usedPct.toFixed(2) : 0}%,${r.unusedPct ? r.unusedPct.toFixed(2) : 100}%`
+      ).join("\n");
+      
+      const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `GRETEX_Storage_Export_${currentDashboardData.selectedDate}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+</body>
+</html>

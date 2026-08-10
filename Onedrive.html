@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GRETEX - OneDrive Intelligence</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] }, colors: { accent: 'rgb(var(--accent-rgb) / <alpha-value>)' } } } }
+  </script>
+
+  <style>
+    /* Global Console Theme (Sidebar) */
+    :root {
+      --accent: #36e0c5; --accent-rgb: 54, 224, 197;
+      
+      /* Light Mode for Sidebar/Base */
+      --bg-body: #f8fafc; --bg-panel: rgba(255, 255, 255, 0.95); --border-panel: rgba(15, 23, 42, 0.1);
+      --text-main: #0f172a; --text-muted: #64748b;
+    }
+
+    .dark {
+      /* Dark Mode for Sidebar/Base */
+      --bg-body: #080c10; --bg-panel: rgba(13, 20, 28, 0.7); --border-panel: rgba(255, 255, 255, 0.04);
+      --text-main: #f1f5f9; --text-muted: #94a3b8;
+    }
+
+    body { background-color: var(--bg-body); color: var(--text-main); transition: background-color 0.3s ease, color 0.3s ease; }
+    .glass-panel { background: var(--bg-panel); backdrop-filter: blur(12px); border: 1px solid var(--border-panel); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05); }
+    .dark .glass-panel { box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4); }
+    .sidebar-link { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; color: var(--text-muted); transition: all 0.2s; }
+    .sidebar-link:hover, .sidebar-link.active { background-color: rgba(var(--accent-rgb), 0.1); color: var(--accent); }
+
+    /* --- ONEDRIVE SPECIFIC THEME (Light Mode Defaults) --- */
+    .onedrive-scope {
+      --bg: #f8fafc; --bg2: #f1f5f9; --bg3: #e2e8f0; --surface: #ffffff; --surface2: #f8fafc;
+      --border: rgba(15, 23, 42, 0.1); --border2: rgba(15, 23, 42, 0.15);
+      --text: #0f172a; --text2: #475569; --text3: #64748b;
+      --od-accent: #6366f1; --od-accent2: #8b5cf6; --cyan: #0ea5e9; --green: #10b981; --amber: #f59e0b; --red: #ef4444; --pink: #ec4899;
+      font-family: "Syne", sans-serif; color: var(--text);
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+    
+    /* --- ONEDRIVE SPECIFIC THEME (Dark Mode Overrides) --- */
+    .dark .onedrive-scope {
+      --bg: #09090f; --bg2: #0f0f1a; --bg3: #14141f; --surface: #1a1a2e; --surface2: #1f1f35;
+      --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.12);
+      --text: #f0f0ff; --text2: #9898b8; --text3: #5a5a7a;
+      --od-accent: #7c6af7; --od-accent2: #a78bfa; --cyan: #22d3ee; --green: #10b981; --amber: #f59e0b; --red: #ef4444; --pink: #ec4899;
+    }
+    
+    .od-header-inner { display: flex; align-items: flex-end; justify-content: space-between; padding-bottom: 24px; border-bottom: 1px solid var(--border); margin-bottom: 36px; flex-wrap: wrap; gap: 20px;}
+    .od-logo-icon { width: 48px; height: 48px; background: linear-gradient(135deg, var(--od-accent), var(--cyan)); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+    .od-logo-text h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; color: var(--text); }
+    .od-logo-text p { font-size: 12px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; font-family: "JetBrains Mono", monospace; margin-top: 2px; }
+    
+    .nav-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 36px; }
+    .tab-btn { padding: 12px 20px; font-family: "Syne", sans-serif; font-size: 13px; font-weight: 600; color: var(--text3); background: none; border: none; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.2s; }
+    .tab-btn:hover { color: var(--text2); }
+    .tab-btn.active { color: var(--od-accent2); border-bottom-color: var(--od-accent2); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+    .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px 22px; position: relative; overflow: hidden; transition: transform 0.2s, border-color 0.2s; }
+    .kpi-card:hover { border-color: var(--od-accent); transform: translateY(-2px); }
+    .kpi-card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+    .kpi-card.c-purple::before { background: linear-gradient(90deg, var(--od-accent), var(--od-accent2)); }
+    .kpi-card.c-cyan::before { background: linear-gradient(90deg, var(--cyan), #38bdf8); }
+    .kpi-card.c-green::before { background: linear-gradient(90deg, var(--green), #34d399); }
+    .kpi-card.c-red::before { background: linear-gradient(90deg, var(--red), #f97316); }
+    .kpi-card.c-amber::before { background: linear-gradient(90deg, var(--amber), #fbbf24); }
+    .kpi-card.c-pink::before { background: linear-gradient(90deg, var(--pink), #f43f5e); }
+    
+    .kpi-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text3); margin-bottom: 10px; font-family: "JetBrains Mono", monospace; }
+    .kpi-value { font-size: 28px; font-weight: 800; letter-spacing: -1px; color: var(--text); }
+    .kpi-sub { font-size: 12px; color: var(--text3); margin-top: 4px; }
+    
+    .od-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; transition: border-color 0.2s;}
+    .od-card:hover { border-color: var(--border2); }
+    .od-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .od-card-title { font-size: 14px; font-weight: 700; color: var(--text); }
+    .od-card-badge { font-family: "JetBrains Mono", monospace; font-size: 10px; padding: 4px 10px; border-radius: 20px; background: rgba(124,106,247,0.15); color: var(--od-accent2); border: 1px solid rgba(124,106,247,0.25); }
+    
+    .search-box, .filter-select { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; color: var(--text); font-family: "Syne", sans-serif; font-size: 13px; outline: none; }
+    .search-box:focus, .filter-select:focus { border-color: var(--od-accent); }
+    
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 12px 16px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text3); font-family: "JetBrains Mono", monospace; cursor: pointer; border-bottom: 1px solid var(--border2); }
+    td { padding: 12px 16px; color: var(--text2); border-bottom: 1px solid var(--border); }
+    tr:hover td { background: var(--bg3); }
+    
+    .avatar { width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; margin-right: 10px; }
+    .prog-bar { height: 5px; background: var(--border2); border-radius: 3px; overflow: hidden; width: 80px; }
+    .prog-fill { height: 100%; border-radius: 3px; }
+    .badge { padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; text-transform: uppercase; font-family: "JetBrains Mono", monospace; }
+    .badge-red { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.25); }
+    .badge-amber { background: rgba(245,158,11,0.15); color: #fcd34d; border: 1px solid rgba(245,158,11,0.25); }
+    .badge-green { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.25); }
+    .badge-gray { background: var(--bg3); color: var(--text3); border: 1px solid var(--border); }
+    .lic-pill { padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; background: rgba(124,106,247,0.12); color: var(--od-accent2); border: 1px solid rgba(124,106,247,0.2); margin: 1px; font-family: "JetBrains Mono"; display: inline-block;}
+
+    .risk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 32px; }
+    .risk-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+
+    /* Modal Animation */
+    .modal-enter { animation: modalFadeIn 0.3s ease-out forwards; }
+    @keyframes modalFadeIn { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+  <script>
+    if(!sessionStorage.getItem('gretex_auth')) window.location.href = 'index.html';
+  </script>
+
+    <!-- MOBILE TOPBAR -->
+  <div class="md:hidden fixed top-0 inset-x-0 z-30 glass-panel border-b border-[var(--border-panel)] flex items-center justify-between px-4 py-3">
+    <button onclick="toggleSidebar()" class="p-2 rounded bg-[var(--bg-input)] border border-[var(--border-input)] text-[var(--text-muted)]" aria-label="Open menu">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+    </button>
+    <h1 class="text-base font-black tracking-tight text-[var(--text-main)]">GRETEX <span class="text-accent text-[10px] font-mono align-top">SYS</span></h1>
+    <div class="w-9"></div>
+  </div>
+
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div id="sidebarOverlay" onclick="closeSidebar()" class="hidden md:hidden fixed inset-0 bg-black/50 z-30"></div>
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar" class="w-64 glass-panel border-r border-[var(--border-panel)] flex flex-col h-full shrink-0 fixed inset-y-0 left-0 z-40 -translate-x-full transition-transform duration-300 ease-in-out md:static md:translate-x-0">
+    <div class="p-6">
+      <h1 class="text-2xl font-black tracking-tight flex items-center gap-2 text-[var(--text-main)]">
+        GRETEX <span class="text-accent text-sm font-mono mt-1">SYS</span>
+      </h1>
+      <p class="text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-mono mt-1">Console Hub</p>
+    </div>
+    
+    <nav class="flex-1 px-4 space-y-2">
+      <a href="GStorage.html" class="sidebar-link">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
+        Storage Telemetry
+      </a>
+      <a href="Monitoring.html" class="sidebar-link">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
+        VM & Hyperv
+      </a>
+      <a href="Onedrive.html" class="sidebar-link active">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+        OneDrive Intelligence
+      </a>
+      <a href="IPS.html" class="sidebar-link">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+        ISP Speed Monitor
+      </a>
+      <a href="cctv.html" class="sidebar-link">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+        CCTV Tracking
+      </a>
+    </nav>
+    
+    <div class="p-4 border-t border-[var(--border-panel)]">
+      <button onclick="logout()" class="w-full sidebar-link justify-center text-red-500 hover:bg-red-500/10">Sign Out</button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="flex-1 h-full overflow-y-auto onedrive-scope pt-16 md:pt-0" style="background: var(--bg);">
+    <div class="max-w-[1400px] mx-auto px-6 pt-8 pb-16">
+      
+      <!-- API Fetch Alert -->
+      <div id="alertBanner" class="hidden mb-6 bg-red-500/10 border border-red-500/30 text-red-400 text-sm px-4 py-3 rounded-lg flex items-center justify-between font-sans">
+        <span id="alertText">Error</span>
+      </div>
+
+      <header>
+        <div class="od-header-inner">
+          <div class="flex items-center gap-4">
+            <div class="od-logo-icon">&#x2601;</div>
+            <div class="od-logo-text"><h1>OneDrive Intelligence</h1><p>Gretex Group &middot; Storage Analytics</p></div>
+          </div>
+          <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 font-mono text-[11px] text-[var(--text3)]">
+              <div class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+              <span id="meta-text">Syncing with Microsoft Cloud...</span>
+            </div>
+            <!-- Theme Toggle Button -->
+            <button onclick="toggleTheme()" class="p-2 rounded bg-[var(--bg3)] border border-[var(--border)] text-[var(--text2)] hover:text-[var(--od-accent)] transition-colors" title="Toggle Light/Dark Mode">
+              <svg id="themeIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('overview')">Overview</button>
+        <button class="tab-btn" onclick="switchTab('charts')">Charts</button>
+        <button class="tab-btn" onclick="switchTab('users')">All Users & Data</button>
+        <button class="tab-btn" onclick="switchTab('risk')">Risk Report</button>
+      </div>
+
+      <!-- TAB: OVERVIEW -->
+      <div class="tab-panel active" id="tab-overview">
+        <div class="kpi-grid">
+          <div class="kpi-card c-purple"><div class="absolute right-4 top-4 text-2xl opacity-20">&#128101;</div><div class="kpi-label">Total Users</div><div class="kpi-value" id="kpi-users">-</div><div class="kpi-sub" id="kpi-domains">-</div></div>
+          <div class="kpi-card c-cyan"><div class="absolute right-4 top-4 text-2xl opacity-20">&#128190;</div><div class="kpi-label">Total Allocated</div><div class="kpi-value" id="kpi-alloc">-</div><div class="kpi-sub">total quota</div></div>
+          <div class="kpi-card c-amber"><div class="absolute right-4 top-4 text-2xl opacity-20">&#128230;</div><div class="kpi-label">Total Used</div><div class="kpi-value" id="kpi-used">-</div><div class="kpi-sub" id="kpi-used-pct">-</div></div>
+          <div class="kpi-card c-green"><div class="absolute right-4 top-4 text-2xl opacity-20">&#9989;</div><div class="kpi-label">Active Users</div><div class="kpi-value" id="kpi-active">-</div><div class="kpi-sub">using storage</div></div>
+          <div class="kpi-card c-red"><div class="absolute right-4 top-4 text-2xl opacity-20">&#128308;</div><div class="kpi-label">Critical &ge;90%</div><div class="kpi-value" id="kpi-critical">-</div><div class="kpi-sub">need attention</div></div>
+          <div class="kpi-card c-pink"><div class="absolute right-4 top-4 text-2xl opacity-20">&#9888;&#65039;</div><div class="kpi-label">High &ge;50%</div><div class="kpi-value" id="kpi-high">-</div><div class="kpi-sub">monitor closely</div></div>
+        </div>
+
+        <div class="od-card mb-6">
+          <div class="od-card-header"><span class="od-card-title">Storage by Domain</span></div>
+          <div class="flex h-2 rounded-full overflow-hidden my-3 gap-0.5" id="domain-bar"></div>
+          <div class="flex flex-wrap gap-4 mt-3" id="domain-legend"></div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+          <div class="od-card lg:col-span-2">
+            <div class="od-card-header"><span class="od-card-title">Top 10 Storage Consumers</span><span class="od-card-badge">GB</span></div>
+            <div class="relative h-[380px]"><canvas id="topUsersChart"></canvas></div>
+          </div>
+          <div class="od-card">
+            <div class="od-card-header"><span class="od-card-title">License Distribution</span><span class="od-card-badge">Count</span></div>
+            <div class="relative h-[220px]"><canvas id="licPieChart"></canvas></div>
+            <div id="lic-legend" class="mt-4 flex flex-col gap-2"></div>
+          </div>
+        </div>
+        
+        <div class="text-center py-4 text-[var(--text3)] text-sm font-mono border border-[var(--border)] rounded-lg bg-[var(--surface)]">
+          Want to see detailed user data? <button onclick="switchTab('users')" class="text-[var(--od-accent2)] hover:underline font-bold ml-2 cursor-pointer">View 'All Users & Data' Tab &rarr;</button>
+        </div>
+      </div>
+
+      <!-- TAB: CHARTS -->
+      <div class="tab-panel" id="tab-charts">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+          <div class="od-card">
+            <div class="od-card-header"><span class="od-card-title">Usage Distribution (% of quota)</span><span class="od-card-badge">All users</span></div>
+            <div class="relative h-[260px]"><canvas id="distChart"></canvas></div>
+          </div>
+          <div class="od-card">
+            <div class="od-card-header"><span class="od-card-title">Storage by License Plan</span><span class="od-card-badge">GB</span></div>
+            <div class="relative h-[260px]"><canvas id="planChart"></canvas></div>
+          </div>
+        </div>
+        <div class="od-card">
+          <div class="od-card-header"><span class="od-card-title">All Active Users &mdash; Storage Used (GB)</span></div>
+          <div class="relative" id="allUsersWrap"><canvas id="allUsersChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- TAB: USERS (WITH CLICKABLE ROWS) -->
+      <div class="tab-panel" id="tab-users">
+        <div class="flex flex-wrap gap-3 mb-5">
+          <input class="search-box flex-1 min-w-[200px]" type="text" id="searchInput" placeholder="Search by name or email..." oninput="filterTable()">
+          <select class="filter-select" id="statusFilter" onchange="filterTable()">
+            <option value="all">All status</option><option value="critical">Critical &ge;90%</option><option value="high">High &ge;50%</option><option value="normal">Normal</option><option value="unused">Unused</option>
+          </select>
+          <select class="filter-select" id="domainFilter" onchange="filterTable()">
+            <option value="all">All domains</option><option value="gretexgroup">gretexgroup.com</option><option value="gretexbroking">gretexbroking.com</option>
+          </select>
+        </div>
+        <div class="od-card p-0 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table id="usersTable">
+              <thead>
+                <tr>
+                  <th onclick="sortTable('name')">Name &#x21D5;</th>
+                  <th onclick="sortTable('email')">Email &#x21D5;</th>
+                  <th onclick="sortTable('license')">License &#x21D5;</th>
+                  <th onclick="sortTable('totalGB')" class="text-right">Quota &#x21D5;</th>
+                  <th onclick="sortTable('usedGB')" class="text-right">Used &#x21D5;</th>
+                  <th>Usage</th>
+                  <th onclick="sortTable('pct')" class="text-right">Status &#x21D5;</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+          <div class="flex items-center justify-between p-4 border-t border-[var(--border)]" id="pagination"></div>
+        </div>
+      </div>
+
+      <!-- TAB: RISK -->
+      <div class="tab-panel" id="tab-risk">
+        <div class="risk-grid" id="risk-grid"></div>
+        <div class="od-card">
+          <div class="od-card-header"><span class="od-card-title">Storage Risk Heatmap</span><span class="od-card-badge">% of quota</span></div>
+          <div id="heatmap" class="flex flex-wrap gap-1.5 mt-1"></div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- SMART VIEW MODAL OVERLAY -->
+  <div id="userModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-[#080c10]/80 backdrop-blur-sm p-4 onedrive-scope">
+    <div class="glass-panel w-full max-w-lg bg-[var(--surface)] rounded-2xl border border-[var(--border)] shadow-2xl modal-enter relative">
+      
+      <!-- Modal Header -->
+      <div class="flex justify-between items-center p-5 border-b border-[var(--border)] bg-[var(--surface2)] rounded-t-2xl">
+        <div class="flex items-center gap-4">
+          <div id="modalAvatar" class="avatar text-lg w-12 h-12 rounded-xl m-0 shadow-inner"></div>
+          <div>
+            <h2 id="modalUserName" class="text-lg font-bold text-[var(--text)] font-sans tracking-tight leading-tight"></h2>
+            <p id="modalUserEmail" class="text-[11px] font-mono text-[var(--text3)]"></p>
+          </div>
+        </div>
+        <button onclick="closeUserModal()" class="text-[var(--text3)] hover:text-red-500 transition-colors bg-transparent p-1 rounded-md hover:bg-red-500/10">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 space-y-5">
+        
+        <!-- License & Status -->
+        <div class="flex justify-between items-start p-4 bg-[var(--bg3)] rounded-xl border border-[var(--border)]">
+           <div>
+             <span class="block text-[9px] uppercase font-mono text-[var(--text3)] font-semibold mb-2">Account Status</span>
+             <div id="modalUserStatus"></div>
+           </div>
+           <div class="text-right max-w-[200px]">
+             <span class="block text-[9px] uppercase font-mono text-[var(--text3)] font-semibold mb-2">Assigned License</span>
+             <div id="modalUserLicense" class="flex flex-wrap justify-end gap-1"></div>
+           </div>
+        </div>
+
+        <!-- Storage Stats -->
+        <div class="grid grid-cols-3 gap-3">
+           <div class="p-4 bg-[var(--bg3)] rounded-xl border border-[var(--border)] text-center">
+             <span class="block text-[9px] uppercase font-mono text-[var(--text3)] font-semibold mb-1">Total Quota</span>
+             <span id="modalUserTotal" class="text-sm font-bold text-[var(--text)] font-mono"></span>
+           </div>
+           <div class="p-4 bg-[var(--bg3)] rounded-xl border border-[var(--border)] text-center">
+             <span class="block text-[9px] uppercase font-mono text-[var(--text3)] font-semibold mb-1">Used Space</span>
+             <span id="modalUserUsed" class="text-sm font-bold text-amber-500 font-mono"></span>
+           </div>
+           <div class="p-4 bg-[var(--bg3)] rounded-xl border border-[var(--border)] text-center">
+             <span class="block text-[9px] uppercase font-mono text-[var(--text3)] font-semibold mb-1">Usage %</span>
+             <span id="modalUserPct" class="text-sm font-bold text-[var(--od-accent2)] font-mono"></span>
+           </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="p-1">
+          <div class="flex justify-between text-[10px] font-mono text-[var(--text3)] mb-2">
+            <span>Storage Consumption</span>
+            <span id="modalUserFree"></span>
+          </div>
+          <div class="h-2.5 bg-[var(--bg3)] rounded-full overflow-hidden border border-[var(--border)] shadow-inner">
+             <div id="modalUserBar" class="h-full rounded-full transition-all duration-700" style="width: 0%"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // IMPORTANT: Replace with your actual GAS App URL
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbw7cyelh6CjuvDLVfbeugh-1Ut63oubr46wG0q7O3oDAGOe9y99GJPacEZHuWuBvmriiA/exec"; 
+    
+    let RAW = [];
+    let filteredData = [];
+    let sortKey = "usedGB";
+    let sortDir = -1;
+    let page = 1;
+    const perPage = 15;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      fetchOneDriveData();
+    });
+
+    // --- THEME TOGGLE LOGIC ---
+    function toggleTheme() {
+      const htmlEl = document.documentElement;
+      if (htmlEl.classList.contains('dark')) {
+        htmlEl.classList.remove('dark'); htmlEl.classList.add('light');
+        document.getElementById('themeIcon').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>';
+      } else {
+        htmlEl.classList.remove('light'); htmlEl.classList.add('dark');
+        document.getElementById('themeIcon').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>';
+      }
+    }
+
+    // Sidebar toggle (mobile / tablet)
+    function openSidebar() {
+      document.getElementById('sidebar').classList.remove('-translate-x-full');
+      document.getElementById('sidebarOverlay').classList.remove('hidden');
+    }
+    function closeSidebar() {
+      document.getElementById('sidebar').classList.add('-translate-x-full');
+      document.getElementById('sidebarOverlay').classList.add('hidden');
+    }
+    function toggleSidebar() {
+      const sb = document.getElementById('sidebar');
+      if (sb.classList.contains('-translate-x-full')) openSidebar(); else closeSidebar();
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('#sidebar .sidebar-link').forEach(link => {
+        link.addEventListener('click', () => { if (window.innerWidth < 768) closeSidebar(); });
+      });
+    });
+
+    function logout() { sessionStorage.removeItem('gretex_auth'); window.location.href = 'index.html'; }
+
+    async function fetchOneDriveData() {
+      try {
+        const response = await fetch(GAS_API_URL + "?action=getOneDriveData");
+        const res = await response.json();
+        
+        if (res.error) {
+          document.getElementById('alertBanner').classList.remove('hidden');
+          document.getElementById('alertText').innerText = res.error;
+          document.getElementById('meta-text').innerText = "Sync Failed";
+        } else {
+          RAW = res.data;
+          filteredData = [...RAW];
+          renderDashboard();
+        }
+      } catch (error) {
+        document.getElementById('alertBanner').classList.remove('hidden');
+        document.getElementById('alertText').innerText = "API Connection Error: " + error.message;
+      }
+    }
+
+    function fmtGB(v){if(v>=1000)return(v/1024).toFixed(2)+" TB";if(v>=1)return v.toFixed(2)+" GB";return(v*1024).toFixed(0)+" MB";}
+    function statusOf(u){if(u.usedGB===0)return"unused";if(u.pct>=0.9)return"critical";if(u.pct>=0.5)return"high";return"normal";}
+    function avatarColor(n){var c=["#7c6af7","#22d3ee","#10b981","#f59e0b","#ec4899","#ef4444","#a78bfa","#34d399"];var h=0;for(var i=0;i<n.length;i++)h=(h*31+n.charCodeAt(i))%c.length;return c[h];}
+    function initials(n){return n.split(" ").slice(0,2).map(function(w){return w[0]||"";}).join("").toUpperCase();}
+
+    // RENDER LOGIC
+    function renderDashboard() {
+      var totalAlloc=RAW.reduce(function(s,u){return s+u.totalGB;},0);
+      var totalUsed=RAW.reduce(function(s,u){return s+u.usedGB;},0);
+      var active=RAW.filter(function(u){return u.usedGB>0;}).length;
+      var critical=RAW.filter(function(u){return u.pct>=0.9;}).length;
+      var high=RAW.filter(function(u){return u.pct>=0.5&&u.pct<0.9;}).length;
+      var domains=new Set(RAW.map(function(u){return u.domain;}));
+      
+      document.getElementById("kpi-users").textContent=RAW.length;
+      document.getElementById("kpi-domains").textContent=domains.size+" domains";
+      document.getElementById("kpi-alloc").textContent=fmtGB(totalAlloc);
+      document.getElementById("kpi-used").textContent=fmtGB(totalUsed);
+      document.getElementById("kpi-used-pct").textContent=totalAlloc>0?((totalUsed/totalAlloc)*100).toFixed(1)+"% of total quota":"0%";
+      document.getElementById("kpi-active").textContent=active;
+      document.getElementById("kpi-critical").textContent=critical;
+      document.getElementById("kpi-high").textContent=high;
+      document.getElementById("meta-text").textContent=RAW.length+" accounts connected";
+
+      // Domain Bar
+      var domainMap={};RAW.forEach(function(u){if(!domainMap[u.domain])domainMap[u.domain]=0;domainMap[u.domain]+=u.usedGB;});
+      var dColors={"gretexgroup.com":"#7c6af7","gretexbroking.com":"#22d3ee"};
+      var dTotal=Object.values(domainMap).reduce(function(a,b){return a+b;},0);
+      var domainBar=document.getElementById("domain-bar"),domainLeg=document.getElementById("domain-legend");
+      domainBar.innerHTML = ''; domainLeg.innerHTML = '';
+      Object.entries(domainMap).forEach(function(e){var d=e[0],v=e[1];
+        domainBar.innerHTML += `<div class="h-full rounded-sm" style="flex:${v};background:${dColors[d]||"#888"};"></div>`;
+        domainLeg.innerHTML += `<div class="flex items-center gap-1.5 text-xs text-[var(--text2)]"><span class="w-2 h-2 rounded-sm" style="background:${dColors[d]||"#888"}"></span><span>${d}</span><span class="ml-1 font-mono text-[10px] text-[var(--text3)]">${fmtGB(v)} (${dTotal>0?((v/dTotal)*100).toFixed(1):0}%)</span></div>`;
+      });
+
+      // Charts (Destroy old instances if re-rendering)
+      if(window.ch1) window.ch1.destroy(); if(window.ch2) window.ch2.destroy(); if(window.ch3) window.ch3.destroy(); if(window.ch4) window.ch4.destroy(); if(window.ch5) window.ch5.destroy();
+
+      // Chart Universal neutral color settings for light/dark compatibility
+      const chartGridColor = "rgba(128,128,128,0.15)";
+      const chartTickColor = "#888";
+
+      // Top 10 Chart
+      var top10=[...RAW].sort(function(a,b){return b.usedGB-a.usedGB;}).slice(0,10);
+      window.ch1 = new Chart(document.getElementById("topUsersChart"),{type:"bar",data:{labels:top10.map(function(u){return u.name;}),datasets:[{label:"Used (GB)",data:top10.map(function(u){return parseFloat(u.usedGB.toFixed(2));}),backgroundColor:top10.map(function(u){return u.pct>=0.9?"#ef4444":u.pct>=0.5?"#f59e0b":"#7c6af7";}),borderRadius:6,borderSkipped:false}]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){var u=top10[c.dataIndex];return" "+fmtGB(c.raw)+" of "+fmtGB(u.totalGB)+" ("+( u.pct*100).toFixed(1)+"%)";}}}},scales:{x:{ticks:{color:chartTickColor,font:{size:11}},grid:{color:chartGridColor}},y:{ticks:{color:chartTickColor,font:{size:11}},grid:{display:false}}}}});
+      
+      // License Pie
+      var licCounts={};RAW.forEach(function(u){licCounts[u.license]=(licCounts[u.license]||0)+1;});
+      var licLabels=Object.keys(licCounts),licColors=["#7c6af7","#22d3ee","#10b981","#f59e0b","#ec4899"];
+      window.ch2 = new Chart(document.getElementById("licPieChart"),{type:"doughnut",data:{labels:licLabels,datasets:[{data:licLabels.map(function(l){return licCounts[l];}),backgroundColor:licColors,borderWidth:0,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,cutout:"68%",plugins:{legend:{display:false}}}});
+      var licLeg=document.getElementById("lic-legend"); licLeg.innerHTML='';
+      licLabels.forEach(function(l,i){licLeg.innerHTML+=`<div class="flex items-center gap-2 text-xs"><span class="w-2 h-2 rounded-sm shrink-0" style="background:${licColors[i%licColors.length]}"></span><span class="text-[var(--text2)] flex-1 truncate">${l}</span><span class="font-mono text-[10px] text-[var(--text3)]">${licCounts[l]}</span></div>`;});
+
+      // Distribution Chart
+      var distBuckets=["Unused","<1%","1-10%","10-25%","25-50%","50-75%","75-90%",">=90%"],distCounts=[0,0,0,0,0,0,0,0];
+      RAW.forEach(function(u){var p=u.pct*100;if(p===0)distCounts[0]++;else if(p<1)distCounts[1]++;else if(p<10)distCounts[2]++;else if(p<25)distCounts[3]++;else if(p<50)distCounts[4]++;else if(p<75)distCounts[5]++;else if(p<90)distCounts[6]++;else distCounts[7]++;});
+      window.ch3 = new Chart(document.getElementById("distChart"),{type:"bar",data:{labels:distBuckets,datasets:[{label:"Users",data:distCounts,backgroundColor:["#888","#3b82f6","#6366f1","#8b5cf6","#a78bfa","#f59e0b","#f97316","#ef4444"],borderRadius:6,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{color:chartTickColor,font:{size:11}},grid:{display:false}},y:{ticks:{color:chartTickColor,font:{size:11},stepSize:1},grid:{color:chartGridColor}}}}});
+
+      // Plan Chart
+      var plans={};RAW.forEach(function(u){if(!plans[u.license])plans[u.license]={alloc:0,used:0};plans[u.license].alloc+=u.totalGB;plans[u.license].used+=u.usedGB;});
+      var planKeys=Object.keys(plans);
+      window.ch4 = new Chart(document.getElementById("planChart"),{type:"bar",data:{labels:planKeys,datasets:[{label:"Allocated",data:planKeys.map(function(k){return parseFloat(plans[k].alloc.toFixed(0));}),backgroundColor:"rgba(124,106,247,0.3)",borderRadius:4,borderSkipped:false},{label:"Used",data:planKeys.map(function(k){return parseFloat(plans[k].used.toFixed(0));}),backgroundColor:"#7c6af7",borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:chartTickColor,font:{size:11}}}},scales:{x:{ticks:{display:false},grid:{display:false}},y:{ticks:{color:chartTickColor,font:{size:11}},grid:{color:chartGridColor}}}}});
+
+      // All Users Chart
+      var activeUsers=[...RAW].filter(function(u){return u.usedGB>0;}).sort(function(a,b){return b.usedGB-a.usedGB;});
+      var wrap=document.getElementById("allUsersWrap");wrap.style.height=Math.max(300,activeUsers.length*30+60)+"px";
+      window.ch5 = new Chart(document.getElementById("allUsersChart"),{type:"bar",data:{labels:activeUsers.map(function(u){return u.name;}),datasets:[{label:"Used (GB)",data:activeUsers.map(function(u){return parseFloat(u.usedGB.toFixed(2));}),backgroundColor:activeUsers.map(function(u){return u.pct>=0.9?"rgba(239,68,68,0.8)":u.pct>=0.5?"rgba(245,158,11,0.8)":"rgba(124,106,247,0.7)";}),borderRadius:4,borderSkipped:false}]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return" "+fmtGB(c.raw);}}}},scales:{x:{ticks:{color:chartTickColor,font:{size:10}},grid:{color:chartGridColor}},y:{ticks:{color:chartTickColor,font:{size:10},autoSkip:false},grid:{display:false}}}}});
+
+      // Risk Grid
+      var rg=document.getElementById("risk-grid"); rg.innerHTML='';
+      var riskData=[
+        {title:"Critical Storage (>=90%)",color:"#ef4444",users:RAW.filter(function(u){return u.pct>=0.9;}).sort(function(a,b){return b.pct-a.pct;})},
+        {title:"High Storage (>=50%)",color:"#f59e0b",users:RAW.filter(function(u){return u.pct>=0.5&&u.pct<0.9;}).sort(function(a,b){return b.pct-a.pct;})},
+        {title:"Unused Accounts",color:"#64748b",users:RAW.filter(function(u){return u.usedGB===0;})}
+      ];
+      riskData.forEach(function(r){
+        var list = r.users.slice(0,8).map(u => `<div class="flex items-center justify-between py-1.5 border-b border-[var(--border)] text-xs"><span class="text-[var(--text2)]">${u.name}</span><span class="font-mono text-[10px] text-[var(--text3)]">${fmtGB(u.usedGB)} / ${fmtGB(u.totalGB)}</span></div>`).join("");
+        var extra = r.users.length>8 ? `<div class="text-[10px] text-[var(--text3)] mt-2 font-mono">+ ${r.users.length-8} more</div>` : "";
+        rg.innerHTML += `<div class="risk-card"><div class="flex items-center gap-2 mb-3"><div class="w-2 h-2 rounded-full" style="background:${r.color};box-shadow:0 0 8px ${r.color}40"></div><div class="text-xs font-bold text-[var(--text)]">${r.title}</div><div class="font-mono text-[10px] text-[var(--text3)] ml-auto">${r.users.length} users</div></div>${list}${extra}</div>`;
+      });
+
+      // Heatmap
+      var hm=document.getElementById("heatmap"); hm.innerHTML='';
+      [...RAW].sort(function(a,b){return b.pct-a.pct;}).forEach(function(u){
+        var s=statusOf(u);
+        var col=s==="critical"?"rgba(239,68,68,0.85)":s==="high"?"rgba(245,158,11,0.75)":s==="normal"?"rgba(124,106,247,0.55)":"rgba(128,128,128,0.15)";
+        hm.innerHTML += `<div title="${u.name}: ${fmtGB(u.usedGB)} (${(u.pct*100).toFixed(1)}%)" style="width:40px;height:40px;border-radius:6px;background:${col};display:flex;align-items:center;justify-content:center;font-size:10px;color:rgba(255,255,255,0.8);font-family:JetBrains Mono;border:1px solid rgba(128,128,128,0.1); cursor:default">${initials(u.name)}</div>`;
+      });
+
+      renderTable();
+    }
+
+    function filterTable(){
+      var q=document.getElementById("searchInput").value.toLowerCase();
+      var st=document.getElementById("statusFilter").value;
+      var dm=document.getElementById("domainFilter").value;
+      filteredData=RAW.filter(function(u){
+        var mq=u.name.toLowerCase().indexOf(q)>-1||u.email.toLowerCase().indexOf(q)>-1;
+        var ms=st==="all"||statusOf(u)===st;
+        var md=dm==="all"||u.domain.indexOf(dm)>-1;
+        return mq&&ms&&md;
+      });
+      page=1; renderTable();
+    }
+
+    function sortTable(k){if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=-1;}renderTable();}
+
+    function renderTable(){
+      var sorted=[...filteredData].sort(function(a,b){var av=a[sortKey]||0,bv=b[sortKey]||0;if(typeof av==="string")return av.localeCompare(bv)*sortDir;return(av-bv)*sortDir;});
+      var start=(page-1)*perPage,end=start+perPage,slice=sorted.slice(start,end);
+      
+      document.getElementById("tableBody").innerHTML=slice.map(function(u){
+        var s=statusOf(u); var pp=Math.min(100,(u.pct*100)).toFixed(1);
+        var bc=s==="critical"?"#ef4444":s==="high"?"#f59e0b":s==="normal"?"#7c6af7":"var(--text3)";
+        var bd=s==="critical"?"badge-red":s==="high"?"badge-amber":s==="normal"?"badge-green":"badge-gray";
+        var bt=s==="critical"?"Critical":s==="high"?"High":s==="normal"?"Normal":"Unused";
+        var lic=u.license.replace(/Microsoft 365/g,"M365").replace(/OneDrive for business/g,"ODB");
+        var lh=lic.split(", ").map(function(l,j){return `<span class="lic-pill ${j>0?'extra':''}">${l}</span>`;}).join("");
+        var ac=avatarColor(u.name);
+        
+        // Encode user details for modal click
+        var userJson = encodeURIComponent(JSON.stringify(u)).replace(/'/g, "%27");
+
+        return `<tr onclick="openUserModal('${userJson}')" class="cursor-pointer transition-colors border-b border-[var(--border)] group">
+          <td class="font-semibold text-[var(--text)] group-hover:text-[var(--od-accent2)] transition-colors"><div class="flex items-center"><div class="avatar" style="background:${ac}22;color:${ac}">${initials(u.name)}</div>${u.name}</div></td>
+          <td class="font-mono text-[10px] text-[var(--text3)]">${u.email}</td>
+          <td>${lh}</td>
+          <td class="font-mono text-xs text-right">${fmtGB(u.totalGB)}</td>
+          <td class="font-mono text-xs text-right">${fmtGB(u.usedGB)}</td>
+          <td style="min-width:140px"><div class="flex items-center gap-2"><div class="prog-bar"><div class="prog-fill" style="width:${pp}%;background:${bc}"></div></div><span class="font-mono text-[10px] text-[var(--text3)] min-w-[35px] text-right">${pp}%</span></div></td>
+          <td class="text-right"><span class="badge ${bd}">${bt}</span></td>
+        </tr>`;
+      }).join("");
+
+      var pages=Math.ceil(filteredData.length/perPage); var pag=document.getElementById("pagination");
+      pag.innerHTML=`<span class="font-mono text-[10px] text-[var(--text3)]">Showing ${start+1}-${Math.min(end,filteredData.length)} of ${filteredData.length} users</span><div class="flex gap-1.5">
+        <button class="px-3 py-1 rounded bg-[var(--bg3)] border border-[var(--border)] text-[var(--text2)] hover:border-[var(--od-accent)] hover:text-[var(--od-accent2)] disabled:opacity-30" onclick="changePage(${page-1})" ${page<=1?"disabled":""}>&#8249;</button>
+        ${Array.from({length:pages},(_,i)=>i+1).filter(p=>Math.abs(p-page)<=2||p===1||p===pages).map(p=>`<button class="px-3 py-1 rounded ${p===page?'bg-[var(--od-accent)] text-white border-[var(--od-accent)]':'bg-[var(--bg3)] border-[var(--border)] text-[var(--text2)] hover:border-[var(--od-accent)]'}" onclick="changePage(${p})">${p}</button>`).join('')}
+        <button class="px-3 py-1 rounded bg-[var(--bg3)] border border-[var(--border)] text-[var(--text2)] hover:border-[var(--od-accent)] hover:text-[var(--od-accent2)] disabled:opacity-30" onclick="changePage(${page+1})" ${page>=pages?"disabled":""}>&#8250;</button>
+      </div>`;
+    }
+
+    function changePage(p){page=p;renderTable();}
+    
+    function switchTab(id){
+      document.querySelectorAll(".tab-btn").forEach((b,i)=>b.classList.toggle("active",["overview","charts","users","risk"][i]===id));
+      document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
+      document.getElementById("tab-"+id).classList.add("active");
+    }
+
+    // --- MODAL FUNCTIONS ---
+    function openUserModal(encodedUser) {
+      try {
+        const u = JSON.parse(decodeURIComponent(encodedUser));
+        const s = statusOf(u);
+        const pp = Math.min(100, (u.pct*100)).toFixed(1);
+
+        // Header mapping
+        document.getElementById('modalUserName').innerText = u.name;
+        document.getElementById('modalUserEmail').innerText = u.email;
+        
+        const ac = avatarColor(u.name);
+        const av = document.getElementById('modalAvatar');
+        av.style.background = ac + '22';
+        av.style.color = ac;
+        av.innerText = initials(u.name);
+
+        // Status mapping
+        const bt = s==="critical"?"Critical":s==="high"?"High":s==="normal"?"Normal":"Unused";
+        const bd = s==="critical"?"badge-red":s==="high"?"badge-amber":s==="normal"?"badge-green":"badge-gray";
+        const bc = s==="critical"?"#ef4444":s==="high"?"#f59e0b":s==="normal"?"#7c6af7":"var(--text3)";
+        document.getElementById('modalUserStatus').innerHTML = `<span class="badge ${bd} px-3 py-1">${bt}</span>`;
+
+        // Licenses
+        const lic = u.license.replace(/Microsoft 365/g,"M365").replace(/OneDrive for business/g,"ODB");
+        const lh = lic.split(", ").map((l,j) => `<span class="lic-pill ${j>0?'extra':''}">${l}</span>`).join("");
+        document.getElementById('modalUserLicense').innerHTML = lh || '<span class="text-[var(--text3)] text-xs">No active license found</span>';
+
+        // Stats mapping
+        document.getElementById('modalUserTotal').innerText = fmtGB(u.totalGB);
+        document.getElementById('modalUserUsed').innerText = fmtGB(u.usedGB);
+        document.getElementById('modalUserPct').innerText = pp + '%';
+        document.getElementById('modalUserFree').innerText = `Available Free Space: ${fmtGB(u.totalGB - u.usedGB)}`;
+        
+        // Progress Bar Update
+        const bar = document.getElementById('modalUserBar');
+        bar.style.width = '0%'; // Reset first for animation
+        setTimeout(() => {
+          bar.style.width = pp + '%';
+          bar.style.backgroundColor = bc;
+        }, 50);
+
+        // Show Modal
+        document.getElementById('userModal').classList.remove('hidden');
+      } catch (err) {
+        console.error("Error displaying user details", err);
+      }
+    }
+
+    function closeUserModal() {
+      document.getElementById('userModal').classList.add('hidden');
+    }
+
+    // Close when clicking outside modal panel
+    document.getElementById('userModal').addEventListener('click', function(e) {
+      if (e.target === this) closeUserModal();
+    });
+  </script>
+</body>
+</html>
