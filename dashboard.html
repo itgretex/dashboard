@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GRETEX - Advanced Master Dashboard</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] },
+          colors: { accent: '#8b5cf6', 'accent-rgb': '139, 92, 246' }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      --accent: #8b5cf6; --accent-rgb: 139, 92, 246; 
+      --bg-body: #f8fafc; --bg-panel: rgba(255, 255, 255, 0.95); --border-panel: rgba(15, 23, 42, 0.1);
+      --text-main: #0f172a; --text-muted: #64748b; --bg-card: #ffffff; --bg-input: #f1f5f9;
+      --border-input: #cbd5e1; --bg-table-head: #f1f5f9; --border-table: #e2e8f0; 
+    }
+
+    .dark {
+      --bg-body: #080c10; --bg-panel: rgba(13, 20, 28, 0.7); --border-panel: rgba(255, 255, 255, 0.04);
+      --text-main: #f1f5f9; --text-muted: #94a3b8; --bg-card: rgba(15, 23, 42, 0.4); --bg-input: #0f172a;
+      --border-input: #1e293b; --bg-table-head: rgba(15, 23, 42, 0.6); --border-table: #1e293b; 
+    }
+
+    body {
+      background-color: var(--bg-body); color: var(--text-main); transition: background-color 0.3s ease, color 0.3s ease;
+      background-image: radial-gradient(at 50% 0%, rgba(var(--accent-rgb), 0.05) 0px, transparent 50%),
+                        linear-gradient(rgba(150, 150, 150, 0.02) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(150, 150, 150, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 24px 24px, 24px 24px;
+    }
+    
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-input); border-radius: 4px; }
+
+    .glass-panel { background: var(--bg-panel); backdrop-filter: blur(12px); border: 1px solid var(--border-panel); box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05); }
+    .dark .glass-panel { box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4); }
+
+    /* CSS FIX: Removed !important to allow theme colors to apply correctly on dropdowns */
+    select, input { background-color: var(--bg-input); border-color: var(--border-input); color: var(--text-main); }
+    select option { background-color: var(--bg-card); color: var(--text-main); }
+
+    .sidebar-link { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; color: var(--text-muted); transition: all 0.2s; }
+    .sidebar-link:hover, .sidebar-link.active { background-color: rgba(var(--accent-rgb), 0.1); color: var(--accent); }
+
+    .pulse-dot { animation: pulse 2s infinite; }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.4); } 70% { box-shadow: 0 0 0 6px rgba(var(--accent-rgb), 0); } 100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0); } }
+
+    .chart-container { position: relative; height: 200px; width: 100%; cursor: pointer; }
+    @media (min-width: 640px) { .chart-container { height: 260px; } }
+    .chart-hover-effect:hover { transform: translateY(-2px); box-shadow: 0 10px 40px -10px rgba(var(--accent-rgb), 0.3); transition: all 0.3s ease; }
+    
+    .badge { display: inline-flex; align-items: center; padding: 0.125rem 0.5rem; border-radius: 9999px; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; font-weight: 600; }
+  </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+  <script>
+    if(!sessionStorage.getItem('gretex_auth')) window.location.href = 'index.html';
+  </script>
+
+    <!-- MOBILE TOPBAR -->
+  <div class="md:hidden fixed top-0 inset-x-0 z-30 glass-panel border-b border-[var(--border-panel)] flex items-center justify-between px-4 py-3">
+    <button onclick="toggleSidebar()" class="p-2 rounded bg-[var(--bg-input)] border border-[var(--border-input)] text-[var(--text-muted)]" aria-label="Open menu">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+    </button>
+    <h1 class="text-base font-black tracking-tight text-[var(--text-main)]">GRETEX <span class="text-accent text-[10px] font-mono align-top">SYS</span></h1>
+    <div class="w-9"></div>
+  </div>
+
+  <!-- SIDEBAR OVERLAY (mobile) -->
+  <div id="sidebarOverlay" onclick="closeSidebar()" class="hidden md:hidden fixed inset-0 bg-black/50 z-30"></div>
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar" class="w-64 glass-panel border-r border-[var(--border-panel)] flex flex-col h-full shrink-0 fixed inset-y-0 left-0 z-40 -translate-x-full transition-transform duration-300 ease-in-out md:static md:translate-x-0">
+    <div class="p-6">
+      <h1 class="text-2xl font-black tracking-tight flex items-center gap-2 text-[var(--text-main)]">
+        GRETEX <span class="text-accent text-sm font-mono mt-1">SYS</span>
+      </h1>
+      <p class="text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-mono mt-1">Command Center</p>
+    </div>
+    <nav class="flex-1 px-4 space-y-2 overflow-y-auto">
+      <a href="dashboard.html" class="sidebar-link active"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>Master Dashboard</a>
+      <a href="GStorage.html" class="sidebar-link"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>Storage Telemetry</a>
+      <a href="Monitoring.html" class="sidebar-link"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>Network Monitor</a>
+      <a href="Onedrive.html" class="sidebar-link"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>OneDrive Intelligence</a>
+      <a href="IPS.html" class="sidebar-link"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>ISP Speed Monitor</a>
+      <a href="cctv.html" class="sidebar-link"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>CCTV Tracking</a>
+    </nav>
+    <div class="p-4 border-t border-[var(--border-panel)]"><button onclick="logout()" class="w-full sidebar-link justify-center text-red-500 hover:bg-red-500/10">Sign Out</button></div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="flex-1 h-full overflow-y-auto pb-16 pt-16 md:pt-0 relative">
+    <div class="max-w-[1600px] mx-auto px-4 md:px-8 pt-6">
+      
+      <!-- HEADER -->
+      <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 mb-6 border-b border-[var(--border-panel)]">
+        <div>
+          <div class="flex items-center gap-2 mb-1.5">
+            <span class="h-2 w-2 rounded-full bg-accent pulse-dot"></span>
+            <span class="font-mono text-[10px] uppercase tracking-[0.25em] text-accent font-bold">360° IT Infrastructure View</span>
+          </div>
+          <h1 class="text-2xl md:text-3xl font-black text-[var(--text-main)] tracking-tight">Master Intelligence Dashboard</h1>
+          <p class="text-[var(--text-muted)] text-xs mt-1" id="subline">Syncing all modules...</p>
+        </div>
+        
+        <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          <!-- GLOBAL DATE/WEEK FILTER -->
+          <div class="relative flex-1 min-w-[160px] sm:flex-initial border-r-0 sm:border-r border-[var(--border-panel)] sm:pr-4">
+            <label class="block font-mono text-[9px] uppercase tracking-wider text-[var(--text-muted)] mb-1">Global Context Filter</label>
+            <select id="globalDateFilter" onchange="applyGlobalFilter()" class="w-full min-w-[160px] rounded px-3 py-1.5 text-xs font-mono font-semibold focus:outline-none focus:ring-1 focus:ring-accent cursor-pointer">
+              <option value="ALL">Latest / All Available</option>
+              <!-- Populated via JS -->
+            </select>
+          </div>
+
+          <button onclick="fetchData()" class="p-2 rounded bg-[var(--bg-input)] border border-[var(--border-input)] text-[var(--text-muted)] hover:text-accent transition-colors" title="Force Refresh">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+          </button>
+          <button onclick="toggleTheme()" class="p-2 rounded bg-[var(--bg-input)] border border-[var(--border-input)] text-[var(--text-muted)] hover:text-accent transition-colors">
+            <svg id="themeIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- ALERT BANNER & LOADER -->
+      <div id="alertBanner" class="hidden mb-6 bg-red-500/10 border border-red-500/30 text-red-500 text-sm px-4 py-3 rounded-lg flex items-center justify-between">
+        <span id="alertText">Error syncing data.</span>
+        <button onclick="document.getElementById('alertBanner').classList.add('hidden')" class="text-xs font-mono hover:underline">[Dismiss]</button>
+      </div>
+      <div id="loader" class="flex flex-col items-center justify-center py-20">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mb-4"></div>
+        <p class="text-[var(--text-muted)] font-mono text-sm animate-pulse">Aggregating Global Data & Machine Learning...</p>
+      </div>
+
+      <div id="dashboardContent" class="hidden space-y-6">
+
+        <div class="text-[10px] text-right text-[var(--text-muted)] font-mono mb-[-15px]">💡 Tip: Click on any chart to drill-down into detailed data.</div>
+
+        <!-- ROW 1: EXECUTIVE KPIs (DONUTS) -->
+        <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="glass-panel chart-hover-effect rounded-xl p-4 flex flex-col items-center justify-center relative">
+            <h3 class="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider mb-2">Storage Allocation</h3>
+            <div class="h-[120px] w-[120px] relative"><canvas id="chartStoreKpi"></canvas></div>
+          </div>
+          <div class="glass-panel chart-hover-effect rounded-xl p-4 flex flex-col items-center justify-center relative">
+            <h3 class="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider mb-2">Network VM Health</h3>
+            <div class="h-[120px] w-[120px] relative"><canvas id="chartNetKpi"></canvas></div>
+          </div>
+          <div class="glass-panel chart-hover-effect rounded-xl p-4 flex flex-col items-center justify-center relative">
+            <h3 class="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider mb-2">OneDrive Cloud Usage</h3>
+            <div class="h-[120px] w-[120px] relative"><canvas id="chartCloudKpi"></canvas></div>
+          </div>
+          <div class="glass-panel chart-hover-effect rounded-xl p-4 flex flex-col items-center justify-center relative">
+            <h3 class="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider mb-2">CCTV Operational Status</h3>
+            <div class="h-[120px] w-[120px] relative"><canvas id="chartCctvKpi"></canvas></div>
+          </div>
+        </section>
+
+        <!-- ROW 2: DETAILED CHARTS (STORAGE) -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="glass-panel chart-hover-effect rounded-xl p-5 lg:col-span-2">
+            <h3 class="text-sm font-bold text-[var(--text-main)] uppercase tracking-widest mb-4 border-b border-[var(--border-panel)] pb-2">Storage Growth Trend</h3>
+            <div class="chart-container"><canvas id="chartStoreTrend"></canvas></div>
+          </div>
+          <div class="glass-panel chart-hover-effect rounded-xl p-5">
+            <h3 class="text-sm font-bold text-[var(--text-main)] uppercase tracking-widest mb-4 border-b border-[var(--border-panel)] pb-2">Top Storage Servers</h3>
+            <div class="chart-container"><canvas id="chartStoreTop"></canvas></div>
+          </div>
+        </section>
+
+        <!-- ROW 3: DETAILED CHARTS (COMPUTE & NETWORK) -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="glass-panel chart-hover-effect rounded-xl p-5">
+            <h3 class="text-sm font-bold text-[var(--text-main)] uppercase tracking-widest mb-4 border-b border-[var(--border-panel)] pb-2">RAM by HyperV Host</h3>
+            <div class="chart-container"><canvas id="chartNetRam"></canvas></div>
+          </div>
+          <div class="glass-panel chart-hover-effect rounded-xl p-5">
+            <h3 class="text-sm font-bold text-[var(--text-main)] uppercase tracking-widest mb-4 border-b border-[var(--border-panel)] pb-2">CPU Cores by HyperV</h3>
+            <div class="chart-container"><canvas id="chartNetCore"></canvas></div>
+          </div>
+          <div class="glass-panel chart-hover-effect rounded-xl p-5">
+            <h3 class="text-sm font-bold text-[var(--text-main)] uppercase tracking-widest mb-4 border-b border-[var(--border-panel)] pb-2">VMs By Location</h3>
+            <div class="chart-container"><canvas id="chartNetLoc"></canvas></div>
+          </div>
+        </section>
+
+        <!-- ROW 4: CLOUD & ISP -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="glass-panel chart-hover-effect rounded-xl p-5">
+            <h3 class="text-sm font-bold text-[var(--text-main)] uppercase tracking-widest mb-4 border-b border-[var(--border-panel)] pb-2">Top 5 OneDrive Users</h3>
+            <div class="chart-container"><canvas id="chartCloudTop"></canvas></div>
+          </div>
+          <div class="glass-panel chart-hover-effect rounded-xl p-5">
+            <h3 class="text-sm font-bold text-[var(--text-main)] uppercase tracking-widest mb-4 border-b border-[var(--border-panel)] pb-2">Cloud Usage by Domain</h3>
+            <div class="chart-container"><canvas id="chartCloudDomain"></canvas></div>
+          </div>
+          <div class="glass-panel chart-hover-effect rounded-xl p-5">
+            <h3 class="text-sm font-bold text-[var(--text-main)] uppercase tracking-widest mb-4 border-b border-[var(--border-panel)] pb-2">CCTV Outages By Location</h3>
+            <div class="chart-container"><canvas id="chartCctvLoc"></canvas></div>
+          </div>
+        </section>
+
+        <!-- ROW 5: ISP CONNECTIVITY -->
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="glass-panel chart-hover-effect rounded-xl p-5">
+            <h3 class="text-sm font-bold text-[var(--text-main)] uppercase tracking-widest mb-4 border-b border-[var(--border-panel)] pb-2">Avg ISP Download vs Plan</h3>
+            <div class="chart-container"><canvas id="chartIspSpeed"></canvas></div>
+          </div>
+          <div class="glass-panel chart-hover-effect rounded-xl p-5">
+            <h3 class="text-sm font-bold text-[var(--text-main)] uppercase tracking-widest mb-4 border-b border-[var(--border-panel)] pb-2">ISP Download vs Upload Profile</h3>
+            <div class="chart-container"><canvas id="chartIspDu"></canvas></div>
+          </div>
+        </section>
+
+        <!-- ROW 6: CRITICAL ALERTS TABLES -->
+        <h2 class="text-xl font-black text-[var(--text-main)] tracking-tight mt-10 mb-2">System Critical Alerts</h2>
+        <section class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          <div class="glass-panel rounded-xl p-4 overflow-y-auto max-h-[300px]">
+            <h3 class="text-xs font-bold text-rose-500 uppercase tracking-widest mb-3 border-b border-rose-500/30 pb-2">Storage > 90% Full</h3>
+            <table class="w-full text-left border-collapse text-[10px] font-mono"><tbody id="alertStorage" class="divide-y divide-[var(--border-table)] text-[var(--text-main)]"></tbody></table>
+          </div>
+          <div class="glass-panel rounded-xl p-4 overflow-y-auto max-h-[300px]">
+            <h3 class="text-xs font-bold text-rose-500 uppercase tracking-widest mb-3 border-b border-rose-500/30 pb-2">Offline VMs</h3>
+            <table class="w-full text-left border-collapse text-[10px] font-mono"><tbody id="alertNetwork" class="divide-y divide-[var(--border-table)] text-[var(--text-main)]"></tbody></table>
+          </div>
+          <div class="glass-panel rounded-xl p-4 overflow-y-auto max-h-[300px]">
+            <h3 class="text-xs font-bold text-rose-500 uppercase tracking-widest mb-3 border-b border-rose-500/30 pb-2">CCTV Cameras Down</h3>
+            <table class="w-full text-left border-collapse text-[10px] font-mono"><tbody id="alertCctv" class="divide-y divide-[var(--border-table)] text-[var(--text-main)]"></tbody></table>
+          </div>
+          <div class="glass-panel rounded-xl p-4 overflow-y-auto max-h-[300px]">
+            <h3 class="text-xs font-bold text-rose-500 uppercase tracking-widest mb-3 border-b border-rose-500/30 pb-2">ISP Speed < 70%</h3>
+            <table class="w-full text-left border-collapse text-[10px] font-mono"><tbody id="alertIsp" class="divide-y divide-[var(--border-table)] text-[var(--text-main)]"></tbody></table>
+          </div>
+        </section>
+      </div> 
+    </div>
+  </main>
+
+  <!-- DRILL-DOWN MODAL -->
+  <div id="drilldownModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+    <div class="glass-panel w-full max-w-5xl max-h-[90vh] rounded-xl shadow-2xl flex flex-col relative overflow-hidden">
+      <div class="p-6 border-b border-[var(--border-panel)] flex justify-between items-center bg-[var(--bg-card)]">
+        <div>
+          <span class="h-2 w-2 rounded-full bg-accent inline-block mb-1"></span>
+          <h3 class="text-2xl font-bold text-[var(--text-main)] inline-block ml-2" id="modalTitle">Detailed Data View</h3>
+          <p class="text-xs font-mono text-[var(--text-muted)] mt-1" id="modalSubtitle">Drill-down raw information</p>
+        </div>
+        <button onclick="closeDrilldown()" class="p-2 text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+      
+      <div class="p-6 overflow-y-auto flex-1 bg-[var(--bg-body)]">
+        <div class="overflow-x-auto border border-[var(--border-table)] rounded-lg">
+          <table class="w-full text-left border-collapse">
+            <thead class="bg-[var(--bg-table-head)] sticky top-0" id="modalHead">
+              <!-- Dynamically populated -->
+            </thead>
+            <tbody id="modalBody" class="divide-y divide-[var(--border-table)] text-[12px] font-mono text-[var(--text-main)]">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbw7cyelh6CjuvDLVfbeugh-1Ut63oubr46wG0q7O3oDAGOe9y99GJPacEZHuWuBvmriiA/exec"; 
+    
+    // Global Raw Data Holders
+    let gStorageRaw = null, gNetworkRaw = null, gCloudRaw = null, gIspRaw = null, gCctvRaw = null;
+    
+    // Filtered Data Holders (Used for charts)
+    let gStorage = null, gNetwork = null, gCloud = null, gIsp = null, gCctv = null;
+    
+    let chartInstances = [];
+    let availableContexts = []; // Weeks/Dates for the global filter
+
+    window.addEventListener('DOMContentLoaded', () => fetchData());
+
+    function toggleTheme() {
+      const htmlEl = document.documentElement;
+      const isDark = htmlEl.classList.contains('dark');
+      if (isDark) {
+        htmlEl.classList.replace('dark', 'light');
+        document.getElementById('themeIcon').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>';
+      } else {
+        htmlEl.classList.replace('light', 'dark');
+        document.getElementById('themeIcon').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>';
+      }
+      setTimeout(renderAllCharts, 100); 
+    }
+
+    // Sidebar toggle (mobile / tablet)
+    function openSidebar() {
+      document.getElementById('sidebar').classList.remove('-translate-x-full');
+      document.getElementById('sidebarOverlay').classList.remove('hidden');
+    }
+    function closeSidebar() {
+      document.getElementById('sidebar').classList.add('-translate-x-full');
+      document.getElementById('sidebarOverlay').classList.add('hidden');
+    }
+    function toggleSidebar() {
+      const sb = document.getElementById('sidebar');
+      if (sb.classList.contains('-translate-x-full')) openSidebar(); else closeSidebar();
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('#sidebar .sidebar-link').forEach(link => {
+        link.addEventListener('click', () => { if (window.innerWidth < 768) closeSidebar(); });
+      });
+    });
+
+    function logout() {
+      sessionStorage.removeItem('gretex_auth'); sessionStorage.removeItem('gretex_user');
+      window.location.href = 'index.html';
+    }
+
+    async function fetchData() {
+      document.getElementById('loader').classList.remove('hidden');
+      document.getElementById('dashboardContent').classList.add('hidden');
+      document.getElementById('alertBanner').classList.add('hidden');
+      
+      try {
+        const [resStore, resNet, resCloud, resIsp, resCctv] = await Promise.all([
+          fetch(GAS_API_URL + "?action=getDashboardData").then(r => r.json()),
+          fetch(GAS_API_URL + "?action=getNetworkData").then(r => r.json()),
+          fetch(GAS_API_URL + "?action=getOneDriveData").then(r => r.json()),
+          fetch(GAS_API_URL + "?action=getISPData").then(r => r.json()),
+          fetch(GAS_API_URL + "?action=getCCTVData").then(r => r.json())
+        ]);
+
+        if (resStore.error || resNet.error || resCloud.error) throw new Error("API Backend Error");
+
+        // Store pure raw data
+        gStorageRaw = resStore; gNetworkRaw = resNet.data; gCloudRaw = resCloud.data; 
+        gIspRaw = resIsp.data; gCctvRaw = resCctv.data;
+        
+        setupGlobalFilter();
+        applyGlobalFilter(); // This will render charts and tables
+        
+        document.getElementById('loader').classList.add('hidden');
+        document.getElementById('dashboardContent').classList.remove('hidden');
+      } catch (e) {
+        document.getElementById('loader').classList.add('hidden');
+        document.getElementById('alertBanner').classList.remove('hidden');
+        document.getElementById('alertText').innerText = "Failed to load master data: " + e.message;
+      }
+    }
+
+    function setupGlobalFilter() {
+      // Gather unique weeks from CCTV and ISP to form "Global Contexts"
+      let weeks = new Set();
+      gCctvRaw.forEach(d => { if(d.week) weeks.add(d.week); });
+      gIspRaw.forEach(d => { if(d.week) weeks.add(d.week); });
+      availableContexts = [...weeks].sort();
+
+      const sel = document.getElementById('globalDateFilter');
+      sel.innerHTML = '<option value="ALL">Latest / All Available</option>';
+      availableContexts.reverse().forEach(w => {
+        sel.innerHTML += `<option value="${w}">${w}</option>`;
+      });
+    }
+
+    // JS FIX: Separated latest week logic for ISP and CCTV so charts don't go blank
+    function applyGlobalFilter() {
+      const selected = document.getElementById('globalDateFilter').value;
+      
+      // Reset to default
+      gStorage = gStorageRaw; gNetwork = gNetworkRaw; gCloud = gCloudRaw;
+
+      if (selected === "ALL") {
+        // Find latest week dynamically for ISP separately
+        let ispWeeks = [...new Set(gIspRaw.map(d=>d.week))].filter(Boolean).sort();
+        let latestIspWk = ispWeeks.length > 0 ? ispWeeks[ispWeeks.length - 1] : null;
+        
+        // Find latest week dynamically for CCTV separately
+        let cctvWeeks = [...new Set(gCctvRaw.map(d=>d.week))].filter(Boolean).sort();
+        let latestCctvWk = cctvWeeks.length > 0 ? cctvWeeks[cctvWeeks.length - 1] : null;
+
+        gIsp = latestIspWk ? gIspRaw.filter(i => i.week === latestIspWk) : gIspRaw;
+        gCctv = latestCctvWk ? gCctvRaw.filter(c => c.week === latestCctvWk) : gCctvRaw;
+        
+        document.getElementById('subline').innerText = "Displaying Latest / All Snapshot Data";
+      } else {
+        gIsp = gIspRaw.filter(i => i.week === selected);
+        gCctv = gCctvRaw.filter(c => c.week === selected);
+        
+        // Safety fallback: Agar selected week mein ISP data nahi hai, toh purana sab dikha do
+        if(gIsp.length === 0) gIsp = gIspRaw;
+        
+        document.getElementById('subline').innerText = `Data Filtered For: ${selected}`;
+      }
+
+      renderAllCharts();
+      renderAlertTables();
+    }
+
+    // --- CHART RENDERING ---
+    function renderAllCharts() {
+      chartInstances.forEach(c => c.destroy());
+      chartInstances = [];
+
+      const isDark = document.documentElement.classList.contains('dark');
+      Chart.defaults.color = isDark ? '#94a3b8' : '#475569';
+      Chart.defaults.font.family = 'Inter';
+      const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+      
+      // Interactive Click Event for Drill-down
+      const drillDownClick = (chartId, datasetType) => {
+        return (event, elements, chart) => {
+          if (elements.length > 0) {
+            const dataIndex = elements[0].index;
+            const label = chart.data.labels[dataIndex];
+            openDrilldown(chartId, label, datasetType);
+          }
+        }
+      };
+
+      const commonOptions = (chartId, dsType) => ({ 
+        responsive: true, maintainAspectRatio: false, 
+        onClick: drillDownClick(chartId, dsType),
+        plugins: { legend: { display: false } }, 
+        scales: { x: { grid: { display: false } }, y: { grid: { color: gridColor } } } 
+      });
+
+      const pieOptions = (chartId, dsType) => ({ 
+        responsive: true, maintainAspectRatio: false, 
+        onClick: drillDownClick(chartId, dsType),
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } } }, cutout: '70%' 
+      });
+
+      // 1. Storage Donut
+      const stAlloc = gStorage.kpi.totalAllocated;
+      const stUsed = gStorage.kpi.totalUsed;
+      createChart('chartStoreKpi', 'doughnut', ['Used (GB)', 'Free (GB)'], [[stUsed, stAlloc - stUsed]], ['#8b5cf6', 'rgba(139, 92, 246, 0.2)'], pieOptions('chartStoreKpi', 'storage'));
+
+      // 2. Network Health Donut
+      let netOn = 0, netOff = 0;
+      gNetwork.forEach(v => { if(v.status.toLowerCase() === 'running') netOn++; else netOff++; });
+      createChart('chartNetKpi', 'doughnut', ['Running', 'Offline'], [[netOn, netOff]], ['#10b981', '#ef4444'], pieOptions('chartNetKpi', 'network'));
+
+      // 3. OneDrive Donut
+      let clTotal = 0, clUsed = 0;
+      gCloud.forEach(u => { clTotal += u.totalGB; clUsed += u.usedGB; });
+      createChart('chartCloudKpi', 'doughnut', ['Used (GB)', 'Free (GB)'], [[clUsed, clTotal - clUsed]], ['#3b82f6', 'rgba(59, 130, 246, 0.2)'], pieOptions('chartCloudKpi', 'cloud'));
+
+      // 4. CCTV Donut 
+      let ccYes = 0, ccNo = 0;
+      gCctv.forEach(c => { if(c.status.toLowerCase() === 'yes') ccYes++; else ccNo++; });
+      createChart('chartCctvKpi', 'doughnut', ['Up', 'Down'], [[ccYes, ccNo]], ['#10b981', '#ef4444'], pieOptions('chartCctvKpi', 'cctv'));
+
+      // 5. Storage Trend (Line)
+      let trDates = gStorage.trend.map(t => t.date.substring(0, 5)); 
+      let trUsed = gStorage.trend.map(t => t.used);
+      createChart('chartStoreTrend', 'line', trDates, [trUsed], ['#8b5cf6'], { ...commonOptions('chartStoreTrend', 'storageT'), elements: { line: { tension: 0.4, borderWidth: 3 } } }, ['Used Storage (GB)']);
+
+      // 6. Top Storage Servers (Bar)
+      let topSrv = gStorage.byServer.slice(0, 5);
+      createChart('chartStoreTop', 'bar', topSrv.map(s => s.server), [topSrv.map(s => s.used)], ['#8b5cf6'], commonOptions('chartStoreTop', 'storage'), ['Used GB']);
+
+      // 7. RAM by HyperV (Bar)
+      let hvMap = {};
+      gNetwork.forEach(v => { hvMap[v.hyperv] = (hvMap[v.hyperv] || 0) + v.ram; });
+      createChart('chartNetRam', 'bar', Object.keys(hvMap), [Object.values(hvMap)], ['#f59e0b'], commonOptions('chartNetRam', 'network'), ['Total RAM (GB)']);
+
+      // 8. CORES by HyperV (Bar) - NEW
+      let coreMap = {};
+      gNetwork.forEach(v => { coreMap[v.hyperv] = (coreMap[v.hyperv] || 0) + v.core; });
+      createChart('chartNetCore', 'bar', Object.keys(coreMap), [Object.values(coreMap)], ['#ec4899'], commonOptions('chartNetCore', 'network'), ['Total Cores']);
+
+      // 9. VMs By Location (Stacked Bar)
+      let locMap = {};
+      gNetwork.forEach(v => {
+        if(!locMap[v.location]) locMap[v.location] = {on: 0, off: 0};
+        if(v.status.toLowerCase() === 'running') locMap[v.location].on++; else locMap[v.location].off++;
+      });
+      let stBarOpt = JSON.parse(JSON.stringify(commonOptions('chartNetLoc', 'network'))); 
+      stBarOpt.scales.x.stacked = true; stBarOpt.scales.y.stacked = true; stBarOpt.plugins.legend.display = true;
+      chartInstances.push(new Chart(document.getElementById('chartNetLoc').getContext('2d'), {
+        type: 'bar', data: { labels: Object.keys(locMap), datasets: [
+          { label: 'Running', data: Object.values(locMap).map(m=>m.on), backgroundColor: '#10b981' },
+          { label: 'Offline', data: Object.values(locMap).map(m=>m.off), backgroundColor: '#ef4444' }
+        ]}, options: stBarOpt
+      }));
+
+      // 10. Top 5 Cloud Users (H-Bar)
+      let topCl = [...gCloud].sort((a,b)=>b.usedGB - a.usedGB).slice(0, 5);
+      let hBarOpt = JSON.parse(JSON.stringify(commonOptions('chartCloudTop', 'cloud'))); 
+      hBarOpt.indexAxis = 'y'; hBarOpt.scales.y.grid.display = false; hBarOpt.scales.x.grid.color = gridColor;
+      createChart('chartCloudTop', 'bar', topCl.map(u => u.name.split(' ')[0]), [topCl.map(u => u.usedGB)], ['#3b82f6'], hBarOpt, ['Used (GB)']);
+
+      // 11. Cloud Domain Usage (Donut) - NEW
+      let domMap = {};
+      gCloud.forEach(u => { domMap[u.domain] = (domMap[u.domain] || 0) + u.usedGB; });
+      createChart('chartCloudDomain', 'doughnut', Object.keys(domMap), [Object.values(domMap)], ['#3b82f6', '#0ea5e9'], pieOptions('chartCloudDomain', 'cloudDomain'));
+
+      // 12. CCTV Outages by Loc (Bar)
+      let ccLocMap = {};
+      gCctv.filter(c => c.status.toLowerCase() === 'no').forEach(c => { ccLocMap[c.location] = (ccLocMap[c.location] || 0) + 1; });
+      createChart('chartCctvLoc', 'bar', Object.keys(ccLocMap), [Object.values(ccLocMap)], ['#ef4444'], commonOptions('chartCctvLoc', 'cctvOutage'), ['Down Count']);
+
+      // 13. ISP Avg Speed vs Plan (Bar)
+      chartInstances.push(new Chart(document.getElementById('chartIspSpeed').getContext('2d'), {
+        type: 'bar', data: { labels: gIsp.map(i=>i.location), datasets: [
+          { label: 'Plan', data: gIsp.map(i=>i.plan), backgroundColor: 'rgba(148, 163, 184, 0.4)' },
+          { label: 'Avg Download', data: gIsp.map(i=>i.download), backgroundColor: '#0ea5e9' }
+        ]}, options: { ...commonOptions('chartIspSpeed', 'isp'), plugins: { legend: { display: true } } }
+      }));
+
+      // 14. ISP Up vs Down (Line/Area) - NEW
+      chartInstances.push(new Chart(document.getElementById('chartIspDu').getContext('2d'), {
+        type: 'line', data: { labels: gIsp.map(i=>i.location), datasets: [
+          { label: 'Download', data: gIsp.map(i=>i.download), borderColor: '#0ea5e9', backgroundColor: 'rgba(14, 165, 233, 0.2)', fill: true, tension: 0.4 },
+          { label: 'Upload', data: gIsp.map(i=>i.upload), borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.2)', fill: true, tension: 0.4 }
+        ]}, options: { ...commonOptions('chartIspDu', 'isp'), plugins: { legend: { display: true } } }
+      }));
+    }
+
+    function createChart(id, type, labels, datasetsData, colors, options, dsLabels = []) {
+      const datasets = datasetsData.map((data, i) => {
+        let bgColor = (type === 'doughnut' || type === 'pie') ? colors : colors[i];
+        let bdColor = (type === 'doughnut' || type === 'pie') ? (document.documentElement.classList.contains('dark') ? '#0f172a' : '#ffffff') : colors[i];
+        return {
+          label: dsLabels[i] || '', data: data, backgroundColor: bgColor, borderColor: bdColor, 
+          borderWidth: (type === 'doughnut') ? 2 : 1, borderRadius: type === 'bar' ? 4 : 0
+        };
+      });
+      const ctx = document.getElementById(id).getContext('2d');
+      chartInstances.push(new Chart(ctx, { type, data: { labels, datasets }, options }));
+    }
+
+    // --- ALERTS TABLES ---
+    function renderAlertTables() {
+      let stAlerts = gStorage.detail.filter(d => d.usedPct > 90).sort((a,b)=>b.usedPct - a.usedPct).slice(0,10);
+      document.getElementById('alertStorage').innerHTML = stAlerts.length ? stAlerts.map(a => `<tr class="border-b border-[var(--border-table)] hover:bg-[var(--bg-input)]"><td class="py-2 px-1 truncate cursor-pointer" onclick="openDrilldown('alert', '${a.server}', 'storage')">${a.server}</td><td class="py-2 px-1 text-right text-rose-500 font-bold">${a.usedPct.toFixed(1)}%</td></tr>`).join('') : `<tr><td class="py-2 px-1 text-[var(--text-muted)]">No critical servers.</td></tr>`;
+
+      let netAlerts = gNetwork.filter(v => v.status.toLowerCase() !== 'running').slice(0,10);
+      document.getElementById('alertNetwork').innerHTML = netAlerts.length ? netAlerts.map(a => `<tr class="border-b border-[var(--border-table)] hover:bg-[var(--bg-input)]"><td class="py-2 px-1 truncate cursor-pointer" onclick="openDrilldown('alert', '${a.vmName}', 'network')">${a.vmName}</td><td class="py-2 px-1 text-right text-[var(--text-muted)]">${a.location}</td></tr>`).join('') : `<tr><td class="py-2 px-1 text-[var(--text-muted)]">All VMs running.</td></tr>`;
+
+      let cctvAlerts = gCctv.filter(c => c.status.toLowerCase() === 'no').slice(0,10);
+      document.getElementById('alertCctv').innerHTML = cctvAlerts.length ? cctvAlerts.map(a => `<tr class="border-b border-[var(--border-table)] hover:bg-[var(--bg-input)]"><td class="py-2 px-1 cursor-pointer" onclick="openDrilldown('alert', '${a.location}', 'cctvOutage')">${a.location} - ${a.camera}</td><td class="py-2 px-1 text-right text-rose-500">${a.date.substring(0,5)}</td></tr>`).join('') : `<tr><td class="py-2 px-1 text-[var(--text-muted)]">All cameras operational.</td></tr>`;
+
+      let ispAlerts = gIsp.filter(i => i.plan > 0 && (i.download/i.plan) < 0.70).slice(0,10);
+      document.getElementById('alertIsp').innerHTML = ispAlerts.length ? ispAlerts.map(a => `<tr class="border-b border-[var(--border-table)] hover:bg-[var(--bg-input)]"><td class="py-2 px-1 truncate cursor-pointer" onclick="openDrilldown('alert', '${a.location}', 'isp')">${a.location}</td><td class="py-2 px-1 text-right text-rose-500 font-bold">${a.download}/${a.plan}</td></tr>`).join('') : `<tr><td class="py-2 px-1 text-[var(--text-muted)]">All ISP speeds normal.</td></tr>`;
+    }
+
+    // --- DRILL DOWN LOGIC (Advanced Interaction) ---
+    function openDrilldown(chartId, clickedLabel, type) {
+      document.getElementById('modalTitle').innerText = `Data Filtered By: ${clickedLabel}`;
+      document.getElementById('modalSubtitle').innerText = `Category: ${type.toUpperCase()}`;
+      
+      let thead = '', tbody = '';
+      let fData = [];
+
+      // Determine Headers & Filter Logic based on type
+      if (type.includes('storage')) {
+        thead = `<tr class="text-[var(--text-muted)] text-[10px] uppercase border-b border-[var(--border-table)]">
+                   <th class="py-3 px-4 font-semibold">Location</th><th class="py-3 px-4 font-semibold">Server</th>
+                   <th class="py-3 px-4 font-semibold text-right">Allocated</th><th class="py-3 px-4 font-semibold text-right">Used</th>
+                 </tr>`;
+        if (type === 'storageT') fData = gStorage.detail; // show all for trend
+        else fData = gStorage.detail.filter(d => d.server.includes(clickedLabel) || clickedLabel.includes('Used') || clickedLabel.includes('Free'));
+        
+        tbody = fData.map(d => `<tr class="border-b border-[var(--border-table)] hover:bg-[var(--bg-input)]">
+           <td class="py-3 px-4">${d.location}</td><td class="py-3 px-4 font-bold text-accent">${d.server}</td>
+           <td class="py-3 px-4 text-right">${d.allocated} GB</td><td class="py-3 px-4 text-right text-rose-400 font-bold">${d.used} GB</td>
+        </tr>`).join('');
+      } 
+      else if (type === 'network') {
+        thead = `<tr class="text-[var(--text-muted)] text-[10px] uppercase border-b border-[var(--border-table)]">
+                   <th class="py-3 px-4 font-semibold">HyperV</th><th class="py-3 px-4 font-semibold">VM Name</th>
+                   <th class="py-3 px-4 font-semibold">Status</th><th class="py-3 px-4 font-semibold text-right">RAM (GB)</th><th class="py-3 px-4 font-semibold text-right">Core</th>
+                 </tr>`;
+        fData = gNetwork.filter(d => d.hyperv === clickedLabel || d.location === clickedLabel || d.vmName === clickedLabel || clickedLabel.includes(d.status) || clickedLabel === 'Running' || clickedLabel === 'Offline');
+        tbody = fData.map(d => `<tr class="border-b border-[var(--border-table)] hover:bg-[var(--bg-input)]">
+           <td class="py-3 px-4">${d.hyperv}</td><td class="py-3 px-4 font-bold text-accent">${d.vmName}</td>
+           <td class="py-3 px-4"><span class="badge ${d.status.toLowerCase()==='running'?'bg-emerald-500/10 text-emerald-500':'bg-rose-500/10 text-rose-500'}">${d.status}</span></td>
+           <td class="py-3 px-4 text-right">${d.ram}</td><td class="py-3 px-4 text-right">${d.core}</td>
+        </tr>`).join('');
+      }
+      else if (type.includes('cloud')) {
+        thead = `<tr class="text-[var(--text-muted)] text-[10px] uppercase border-b border-[var(--border-table)]">
+                   <th class="py-3 px-4 font-semibold">Name</th><th class="py-3 px-4 font-semibold">Email</th>
+                   <th class="py-3 px-4 font-semibold text-right">Used GB</th><th class="py-3 px-4 font-semibold text-right">Total GB</th>
+                 </tr>`;
+        fData = gCloud.filter(d => d.name.includes(clickedLabel) || d.domain === clickedLabel || clickedLabel.includes('Used') || clickedLabel.includes('Free'));
+        tbody = fData.map(d => `<tr class="border-b border-[var(--border-table)] hover:bg-[var(--bg-input)]">
+           <td class="py-3 px-4 font-bold text-accent">${d.name}</td><td class="py-3 px-4">${d.email}</td>
+           <td class="py-3 px-4 text-right font-bold text-blue-500">${d.usedGB.toFixed(2)}</td><td class="py-3 px-4 text-right">${d.totalGB}</td>
+        </tr>`).join('');
+      }
+      else if (type.includes('cctv')) {
+        thead = `<tr class="text-[var(--text-muted)] text-[10px] uppercase border-b border-[var(--border-table)]">
+                   <th class="py-3 px-4 font-semibold">Date</th><th class="py-3 px-4 font-semibold">Location</th>
+                   <th class="py-3 px-4 font-semibold">Camera</th><th class="py-3 px-4 font-semibold">Status</th>
+                 </tr>`;
+        fData = gCctv.filter(d => d.location === clickedLabel || (type === 'cctv' && (clickedLabel==='Up'?d.status.toLowerCase()==='yes':d.status.toLowerCase()==='no')));
+        tbody = fData.map(d => `<tr class="border-b border-[var(--border-table)] hover:bg-[var(--bg-input)]">
+           <td class="py-3 px-4">${d.date}</td><td class="py-3 px-4 font-bold">${d.location}</td>
+           <td class="py-3 px-4 font-bold text-accent">${d.camera}</td>
+           <td class="py-3 px-4"><span class="badge ${d.status.toLowerCase()==='yes'?'bg-emerald-500/10 text-emerald-500':'bg-rose-500/10 text-rose-500'}">${d.status}</span></td>
+        </tr>`).join('');
+      }
+      else if (type === 'isp') {
+        thead = `<tr class="text-[var(--text-muted)] text-[10px] uppercase border-b border-[var(--border-table)]">
+                   <th class="py-3 px-4 font-semibold">Date</th><th class="py-3 px-4 font-semibold">Location</th>
+                   <th class="py-3 px-4 font-semibold text-right">Plan</th><th class="py-3 px-4 font-semibold text-right text-sky-500">Download</th><th class="py-3 px-4 font-semibold text-right text-amber-500">Upload</th>
+                 </tr>`;
+        fData = gIsp.filter(d => d.location === clickedLabel);
+        tbody = fData.map(d => `<tr class="border-b border-[var(--border-table)] hover:bg-[var(--bg-input)]">
+           <td class="py-3 px-4">${d.date}</td><td class="py-3 px-4 font-bold">${d.location}</td>
+           <td class="py-3 px-4 text-right">${d.plan}</td><td class="py-3 px-4 text-right font-bold text-sky-500">${d.download}</td><td class="py-3 px-4 text-right font-bold text-amber-500">${d.upload}</td>
+        </tr>`).join('');
+      }
+
+      if(!tbody) tbody = `<tr><td colspan="5" class="py-8 text-center text-[var(--text-muted)]">No precise drill-down data found for this selection.</td></tr>`;
+
+      document.getElementById('modalHead').innerHTML = thead;
+      document.getElementById('modalBody').innerHTML = tbody;
+      document.getElementById('drilldownModal').classList.remove('hidden');
+    }
+
+    function closeDrilldown() {
+      document.getElementById('drilldownModal').classList.add('hidden');
+    }
+  </script>
+</body>
+</html>
